@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/dirac-lee/gdal/sqlutil"
+	"github.com/dirac-lee/gdal/gutil/gsql"
 	"gorm.io/gorm"
 	"gorm.io/plugin/dbresolver"
 	"reflect"
@@ -32,7 +32,7 @@ func (r *client) Delete(ctx context.Context, po any, where any) (int64, error) {
 		return 0, db.Error
 	}
 
-	query, args, err := sqlutil.BuildSQLWhere(where)
+	query, args, err := gsql.BuildSQLWhere(where)
 	if err != nil {
 		return 0, err
 	}
@@ -53,14 +53,14 @@ func (r *client) Update(ctx context.Context, po any, where any, update any) (int
 		return 0, db.Error
 	}
 
-	query, args, err := sqlutil.BuildSQLWhere(where)
+	query, args, err := gsql.BuildSQLWhere(where)
 	if err != nil {
 		return 0, err
 	}
 	if len(args) == 0 {
 		return 0, fmt.Errorf("can not update without args")
 	}
-	attrs, err := sqlutil.BuildSQLUpdate(update)
+	attrs, err := gsql.BuildSQLUpdate(update)
 	if err != nil {
 		return 0, err
 	}
@@ -110,7 +110,7 @@ func (r *client) Upsert(ctx context.Context, po, where, update any) (isCreated b
 		return false, db.Error
 	}
 
-	query, args, err := sqlutil.BuildSQLWhere(where)
+	query, args, err := gsql.BuildSQLWhere(where)
 	if err != nil {
 		return false, err
 	}
@@ -148,7 +148,7 @@ func (r *client) Count(ctx context.Context, po any, where any) (int32, error) {
 		return 0, db.Error
 	}
 
-	query, args, err := sqlutil.BuildSQLWhere(where)
+	query, args, err := gsql.BuildSQLWhere(where)
 	if err != nil {
 		return 0, err
 	}
@@ -201,7 +201,7 @@ func (r *client) whereDB(ctx context.Context, where any, options ...QueryOption)
 		return nil, db.Error
 	}
 
-	query, args, err := sqlutil.BuildSQLWhere(where)
+	query, args, err := gsql.BuildSQLWhere(where)
 	if err != nil {
 		return nil, err
 	}

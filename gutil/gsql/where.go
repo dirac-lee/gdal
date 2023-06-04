@@ -1,4 +1,4 @@
-package sqlutil
+package gsql
 
 import (
 	"errors"

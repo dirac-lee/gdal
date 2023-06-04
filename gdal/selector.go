@@ -3,7 +3,6 @@ package gdal
 import (
 	"fmt"
 	"github.com/dirac-lee/gdal/generic/gslice"
-	"github.com/dirac-lee/gdal/sqlutil"
 	"reflect"
 	"strings"
 	"sync"
@@ -28,7 +27,7 @@ func GetSelector[PO any]() []string {
 // @return []string:
 func GetSelectorFromPOs(pos any) []string {
 	rt := reflect.TypeOf(pos)
-	structType, err := sqlutil.GetElemStructType(rt)
+	structType, err := gsql.GetElemStructType(rt)
 	if err != nil {
 		return nil // TODO
 	}

@@ -1,7 +1,7 @@
-package sqlutil
+package gsql
 
 import (
-	"github.com/dirac-lee/gdal/gerror"
+	"github.com/dirac-lee/gdal/gutil/gerror"
 	"reflect"
 )
 

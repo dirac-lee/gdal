@@ -6,7 +6,7 @@ import (
 	"github.com/dirac-lee/gdal/generic/gptr"
 	"github.com/dirac-lee/gdal/generic/gslice"
 	"github.com/dirac-lee/gdal/generic/gvalue"
-	"github.com/dirac-lee/gdal/gerror"
+	"github.com/dirac-lee/gdal/gutil/gerror"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )

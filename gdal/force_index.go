@@ -3,7 +3,6 @@ package gdal
 import (
 	"context"
 	"github.com/dirac-lee/gdal"
-	"github.com/dirac-lee/gdal/sqlutil"
 	"gorm.io/hints"
 )
 
@@ -21,7 +20,7 @@ type ForceIndexer interface {
 func (dal *GenericDAL[PO, Where, Update]) forceIndexIfHas(ctx context.Context, where any) *GenericDAL[PO, Where, Update] {
 	txDAL := dal
 	var forceIndex string
-	if forceIndexer, implemented := sqlutil.Implements[ForceIndexer](where); implemented { // Where 指定了全局索引
+	if forceIndexer, implemented := gsql.Implements[ForceIndexer](where); implemented { // Where 指定了全局索引
 		forceIndex = forceIndexer.ForceIndex()
 	}
 	if len(forceIndex) == 0 { // Where 没有指定强制索引，由数据库自行决定
