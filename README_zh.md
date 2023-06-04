@@ -14,6 +14,8 @@ go get github.com/dirac-lee/gdal
 
 ## 2. 使用方式
 
+具体可参考 [example](./example)
+
 ### 2.1 定义三种业务结构体
 
 ### 2.1.1 三种业务结构体
@@ -175,12 +177,12 @@ func main() {
 ```go
 now := time.Now()
 po := model.User{
-ID:         110,
-Name:       "dirac",
-Balance:    100,
-CreateTime: now,
-UpdateTime: now,
-Deleted:    false,
+    ID:         110,
+    Name:       "dirac",
+    Balance:    100,
+    CreateTime: now,
+    UpdateTime: now,
+    Deleted:    false,
 }
 gdal.Create(ctx, &po)
 ```
@@ -190,22 +192,22 @@ gdal.Create(ctx, &po)
 ```go
 now := time.Now()
 pos := []*model.User{
-{
-ID:         120,
-Name:       "bob",
-Balance:    100,
-CreateTime: now,
-UpdateTime: now,
-Deleted:    false,
-},
-{
-ID:         130,
-Name:       "estele",
-Balance:    50,
-CreateTime: now,
-UpdateTime: now,
-Deleted:    false,
-},
+    {
+        ID:         120,
+        Name:       "bob",
+        Balance:    100,
+        CreateTime: now,
+        UpdateTime: now,
+        Deleted:    false,
+    },
+    {
+        ID:         130,
+        Name:       "estele",
+        Balance:    50,
+        CreateTime: now,
+        UpdateTime: now,
+        Deleted:    false,
+    },
 }
 gdal.MCreate(ctx, &pos)
 ```
@@ -216,7 +218,7 @@ gdal.MCreate(ctx, &pos)
 
 ```go
 where := &model.UserWhere{
-IDIn: []int64{110, 120},
+    IDIn: []int64{110, 120},
 }
 gdal.Delete(ctx, where)
 ```
@@ -233,10 +235,10 @@ gdal.DeleteByID(ctx, 130)
 
 ```go
 where := &model.UserWhere{
-IDIn: []int64{110, 120},
+    IDIn: []int64{110, 120},
 }
 update := &model.UserUpdate{
-BalanceAdd: gptr.Of[int64](10),
+    BalanceAdd: gptr.Of[int64](10),
 }
 gdal.Update(ctx, where, update)
 ```
@@ -245,7 +247,7 @@ gdal.Update(ctx, where, update)
 
 ```go
 update := &model.UserUpdate{
-BalanceMinus: gptr.Of[int64](20),
+    BalanceMinus: gptr.Of[int64](20),
 }
 gdal.UpdateByID(ctx, 130, update)
 ```
@@ -257,7 +259,7 @@ gdal.UpdateByID(ctx, 130, update)
 ```go
 var pos []*model.User
 where := &model.UserWhere{
-NameLike: gptr.Of("dirac"),
+    NameLike: gptr.Of("dirac"),
 }
 err = gdal.Find(ctx, &pos, where)
 ```
@@ -266,7 +268,7 @@ err = gdal.Find(ctx, &pos, where)
 
 ```go
 where := &model.UserWhere{
-IDIn: []int64{110, 120},
+    IDIn: []int64{110, 120},
 }
 pos, err := gdal.MQuery(ctx, where)
 ```
@@ -275,7 +277,7 @@ pos, err := gdal.MQuery(ctx, where)
 
 ```go
 where := &model.UserWhere{
-IDIn: []int64{110, 120},
+    IDIn: []int64{110, 120},
 }
 pos, total, err := gdal.MQueryByPaging(ctx, where, gptr.Of[int64](5), nil, gptr.Of("create_time desc"))
 ```
@@ -284,7 +286,7 @@ pos, total, err := gdal.MQueryByPaging(ctx, where, gptr.Of[int64](5), nil, gptr.
 
 ```go
 where := &model.UserWhere{
-IDIn: []int64{110, 120},
+    IDIn: []int64{110, 120},
 }
 pos, total, err := userDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(5), gdal.WithOrder("create_time desc"))
 ```
@@ -293,20 +295,20 @@ pos, total, err := userDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(5), gdal
 
 ```go
 db.Transaction(func (tx *gorm.DB) error {
-
-update := &model.UserUpdate{
-BalanceMinus: gptr.Of[int64](20),
-}
-err := userDAL.WithTx(tx).UpdateByID(ctx, 130, update)
-if err != nil {
-return err // rollback
-}
-
-_, err = userDAL.WithTx(tx).DeleteByID(ctx, 130)
-if err != nil {
-return err // rollback
-}
-
-return nil // commit
+    
+    update := &model.UserUpdate{
+        BalanceMinus: gptr.Of[int64](20),
+    }
+    err := userDAL.WithTx(tx).UpdateByID(ctx, 130, update)
+    if err != nil {
+        return err // rollback
+    }
+    
+    _, err = userDAL.WithTx(tx).DeleteByID(ctx, 130)
+    if err != nil {
+        return err // rollback
+    }
+    
+    return nil // commit
 })
 ```
