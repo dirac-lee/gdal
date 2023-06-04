@@ -2,7 +2,7 @@ package gdal
 
 import (
 	"context"
-	"github.com/dirac-lee/gdal"
+	"github.com/dirac-lee/gdal/gutil/greflect"
 	"gorm.io/hints"
 )
 
@@ -16,15 +16,15 @@ type ForceIndexer interface {
 // @Description: 如果 Where 实现了 ForceIndexer 接口，走 ForceIndexer 指定的索引，否则由数据库自选
 // ❗请为️ Where 而不是 *Where 实现此接口，因为这里使用 Where 来判断是否实现该接口
 // @param ctx:
-// @return *GenericDAL
-func (dal *GenericDAL[PO, Where, Update]) forceIndexIfHas(ctx context.Context, where any) *GenericDAL[PO, Where, Update] {
-	txDAL := dal
+// @return *GDAL
+func (gdal *GDAL[PO, Where, Update]) forceIndexIfHas(ctx context.Context, where any) *GDAL[PO, Where, Update] {
+	txDAL := gdal
 	var forceIndex string
-	if forceIndexer, implemented := gsql.Implements[ForceIndexer](where); implemented { // Where 指定了全局索引
+	if forceIndexer, implemented := greflect.Implements[ForceIndexer](where); implemented { // Where 指定了全局索引
 		forceIndex = forceIndexer.ForceIndex()
 	}
 	if len(forceIndex) == 0 { // Where 没有指定强制索引，由数据库自行决定
 		return txDAL
 	}
-	return NewGenericDAL[PO, Where, Update](gdal.New(dal.DB(ctx).Clauses(hints.UseIndex(forceIndex))))
+	return NewGDAL[PO, Where, Update](NewDAL(gdal.DBWithCtx(ctx).Clauses(hints.UseIndex(forceIndex))))
 }

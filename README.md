@@ -1,6 +1,6 @@
 # GDAL
 
-Generic Data Access Layer for gophers.
+Generic Data Access Layer. Based on grom and provide more friendly interfaces.
 
 ## Requirements
 
@@ -8,3 +8,4 @@ Generic Data Access Layer for gophers.
 
 ## How To Use
 
+WIP

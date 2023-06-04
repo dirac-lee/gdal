@@ -3,6 +3,7 @@ package gsql
 import (
 	"errors"
 	"fmt"
+	"github.com/dirac-lee/gdal/gutil/greflect"
 	"reflect"
 	"strings"
 	"sync"
@@ -60,7 +61,7 @@ type FieldExpr string // sql: field_1 > field_2, name field_2 需要使用 Field
 //		}
 //	}
 func BuildSQLWhere(where any) (query string, args []any, err error) {
-	rv, rt, err := GetElemValueTypeOfPtr(reflect.ValueOf(where))
+	rv, rt, err := greflect.GetElemValueTypeOfPtr(reflect.ValueOf(where))
 	if err != nil {
 		return "", nil, err
 	}

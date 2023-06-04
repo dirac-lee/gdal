@@ -3,6 +3,7 @@ package gsql
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/dirac-lee/gdal/gutil/greflect"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"reflect"
@@ -51,7 +52,7 @@ import (
 //	        logs.Error("update table abc failed: %s", err)
 //	    }
 func BuildSQLUpdate(update any) (map[string]any, error) {
-	rv, rt, err := GetElemValueTypeOfPtr(reflect.ValueOf(update))
+	rv, rt, err := greflect.GetElemValueTypeOfPtr(reflect.ValueOf(update))
 	if err != nil {
 		return nil, err
 	}

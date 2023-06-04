@@ -1,4 +1,4 @@
-package gsql
+package greflect
 
 import (
 	"github.com/dirac-lee/gdal/gutil/gerror"
