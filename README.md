@@ -1,10 +1,16 @@
 # GDAL
 
-Generic Data Access Layer. Based on grom and provide more friendly interfaces.
+Generic Data Access Layer. Based on grom and provide more friendly ORM syntax.
 
-## Requirements
+[简体中文](./README_zh.md)
 
-- go > 1.18
+## Installation
+
+> requirements: go > 1.18
+
+```bash
+go get github.com/dirac-lee/gdal
+```
 
 ## How To Use
 

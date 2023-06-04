@@ -33,7 +33,7 @@ type dal struct {
 
 // NewDAL
 //
-// @Description: construct with gorm
+// @Description: new dal
 //
 // @param db:
 //
