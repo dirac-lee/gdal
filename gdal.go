@@ -78,11 +78,15 @@ func (gdal *GDAL[PO, Where, Update]) Count(ctx context.Context, where *Where) (i
 // @param options: 分页规则
 // @return error:
 func (gdal *GDAL[PO, Where, Update]) Find(ctx context.Context, pos any, where any, options ...QueryOption) error {
-	selector := GetSelectorFromPOs(pos)                        // 根据 PO gorm tag 确定 select 字段列表
-	injectDefaultIfHas(where)                                  // 如果配置了默认值，并且用户未指定该字段，则注入默认值
-	indexedDAL := gdal.forceIndexIfHas(ctx, where)             // 如果 Where 指定了强制索引，则走强制索引
-	options = gslice.Insert(options, 0, WithSelects(selector)) // 优先使用业务指定的 WithSelects
-	err := indexedDAL.DAL.Find(ctx, pos, where, options...)
+	selector, err := GetSelectorFromPOs(pos) // 根据 PO gorm tag 确定 select 字段列表
+	if err != nil {
+		return err
+	}
+	injectDefaultIfHas(where)                      // 如果配置了默认值，并且用户未指定该字段，则注入默认值
+	indexedDAL := gdal.forceIndexIfHas(ctx, where) // 如果 Where 指定了强制索引，则走强制索引
+
+	options = append(gslice.Of(WithSelects(selector)), options...) // 优先使用业务指定的 WithSelects
+	err = indexedDAL.DAL.Find(ctx, pos, where, options...)
 	if gerror.IsRecordNotFoundError(err) {
 		return nil
 	}
@@ -97,10 +101,13 @@ func (gdal *GDAL[PO, Where, Update]) Find(ctx context.Context, pos any, where an
 // @param options: 分页规则
 // @return error:
 func (gdal *GDAL[PO, Where, Update]) First(ctx context.Context, po any, where any, options ...QueryOption) error {
-	selector := GetSelectorFromPOs(po)                         // 根据 PO gorm tag 确定 select 字段列表
-	injectDefaultIfHas(where)                                  // 如果配置了默认值，并且用户未指定该字段，则注入默认值
-	indexedDAL := gdal.forceIndexIfHas(ctx, where)             // 如果 Where 指定了强制索引，则走强制索引
-	options = gslice.Insert(options, 0, WithSelects(selector)) // 优先使用业务指定的 WithSelects
+	selector, err := GetSelectorFromPOs(po) // 根据 PO gorm tag 确定 select 字段列表
+	if err != nil {
+		return err
+	}
+	injectDefaultIfHas(where)                                      // 如果配置了默认值，并且用户未指定该字段，则注入默认值
+	indexedDAL := gdal.forceIndexIfHas(ctx, where)                 // 如果 Where 指定了强制索引，则走强制索引
+	options = append(gslice.Of(WithSelects(selector)), options...) // 优先使用业务指定的 WithSelects
 	return indexedDAL.DAL.First(ctx, po, where, options...)
 }
 
@@ -269,7 +276,7 @@ func (gdal *GDAL[PO, Where, Update]) DBWithCtx(ctx context.Context, options ...Q
 // @param ctx: 自动 WithCtx
 // @param options: db 配置，如配置主键、本地缓存、读主库等
 // @return *gorm.db: 当前 DAL 引用的 db 对象
-func (gdal *GDAL[PO, Where, Update]) DB(ctx context.Context, options ...QueryOption) *gorm.DB {
+func (gdal *GDAL[PO, Where, Update]) DB(options ...QueryOption) *gorm.DB {
 	return gdal.DAL.DB(options...)
 }
 

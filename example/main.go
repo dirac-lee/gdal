@@ -93,14 +93,14 @@ func main() {
 		where := &model.UserWhere{
 			NameLike: gptr.Of("dirac"),
 		}
-		userDAL.Find(ctx, &pos, where)
+		userDAL.Find(ctx, &pos, where, gdal.WithDebug())
 	}
 
 	{ // 查询多条记录
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
-		pos, err := userDAL.MQuery(ctx, where)
+		pos, err := userDAL.MQuery(ctx, where, gdal.WithDebug(), gdal.WithMaster())
 		println(pos, err)
 	}
 
@@ -116,7 +116,7 @@ func main() {
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
-		pos, total, err := userDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(5), gdal.WithOrder("create_time desc"))
+		pos, total, err := userDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(5), gdal.WithOrder("create_time desc"), gdal.WithDebug())
 		println(pos, total, err)
 	}
 

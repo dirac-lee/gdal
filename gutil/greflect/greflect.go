@@ -24,7 +24,7 @@ func GetElemValueTypeOfPtr(rv reflect.Value) (reflect.Value, reflect.Type, error
 
 // GetElemValueOfPtr
 //
-// @Description: 获取指针底层 struct 数据类型。若非 struct 则 panic。
+// @Description: 获取指针底层 struct 数据类型。
 //
 // @param rv: 底层 struct 数据类型
 //
@@ -47,7 +47,7 @@ func GetElemValueOfPtr(rv reflect.Value) (reflect.Value, error) {
 
 // GetElemStructType
 //
-// @Description: 获取指针、切片、数组底层 struct 数据类型。若非 struct 则 panic。
+// @Description: 获取指针、切片、数组底层 struct 数据类型。
 //
 // @param rt: 底层 struct 数据类型
 //
