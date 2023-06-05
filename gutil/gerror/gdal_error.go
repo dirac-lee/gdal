@@ -10,6 +10,10 @@ var (
 	GDALErr = errors.New("[GDAL] error")
 )
 
+func IsGDALErr(err error) bool {
+	return errors.Is(err, GDALErr)
+}
+
 func GDALErrorf(format string, a ...any) error {
 	return fmt.Errorf("%w: %s", GDALErr, fmt.Sprintf(format, a...))
 }
