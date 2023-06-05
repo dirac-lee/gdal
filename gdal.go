@@ -87,7 +87,7 @@ func (gdal *GDAL[PO, Where, Update]) Find(ctx context.Context, pos any, where an
 
 	options = append(gslice.Of(WithSelects(selector)), options...) // 优先使用业务指定的 WithSelects
 	err = indexedDAL.DAL.Find(ctx, pos, where, options...)
-	if gerror.IsRecordNotFoundError(err) {
+	if gerror.IsErrRecordNotFound(err) {
 		return nil
 	}
 	return err
@@ -182,7 +182,7 @@ func (gdal *GDAL[PO, Where, Update]) QueryFirst(ctx context.Context, where *Wher
 	var po PO
 	err := gdal.First(ctx, &po, where)
 	if err != nil {
-		if gerror.IsRecordNotFoundError(err) {
+		if gerror.IsErrRecordNotFound(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -203,7 +203,7 @@ func (gdal *GDAL[PO, Where, Update]) QueryByID(ctx context.Context, id int64) (*
 	var po PO
 	err := gdal.First(ctx, &po, where)
 	if err != nil {
-		if gerror.IsRecordNotFoundError(err) {
+		if gerror.IsErrRecordNotFound(err) {
 			return nil, nil
 		}
 		return nil, err

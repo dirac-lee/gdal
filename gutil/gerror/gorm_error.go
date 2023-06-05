@@ -48,7 +48,7 @@ var (
 	ErrDuplicatedKey = gorm.ErrDuplicatedKey
 )
 
-func IsRecordNotFoundError(err error) bool {
+func IsErrRecordNotFound(err error) bool {
 	return errors.Is(err, ErrRecordNotFound)
 }
 
