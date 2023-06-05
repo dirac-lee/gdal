@@ -23,9 +23,9 @@ func InvalidReflectValueErr(rv reflect.Value) error {
 }
 
 func GormTagShouldBeKVsErr(tag string) error {
-	return GDALErr("gorm tag should be kvs, bug got: %v", tag)
+	return GDALErrorf("gorm tag should be kvs, bug got: %v", tag)
 }
 
 func GetSelectorFromNonStructErr(rt reflect.Type) error {
-	return GDALErr("could not get selector from non-struct type: %v", rt)
+	return GDALErrorf("could not get selector from non-struct type: %v", rt)
 }
