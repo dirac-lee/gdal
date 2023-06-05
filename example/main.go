@@ -78,7 +78,7 @@ func main() {
 		update := &model.UserUpdate{
 			BalanceAdd: gptr.Of[int64](10),
 		}
-		userDAL.Update(ctx, where, update)
+		userDAL.MUpdate(ctx, where, update)
 	}
 
 	{ // 通过 ID 更新

@@ -12,10 +12,10 @@ import (
 
 // GDAL
 // @Description: 泛型 DAL，提供通用增删改查功能。
-// 业务 DAL 嵌套 *GDAL，并指定 PO、Where 和 Update 结构体，然后进行针对性扩展。
+// 业务 DAL 嵌套 *GDAL，并指定 PO、Where 和 MUpdate 结构体，然后进行针对性扩展。
 // @param PO     持久对象 (persistent object)
 // @param Where  查询条件对象 (query condition object)
-// @param Update 更新规则对象 (update rule object)
+// @param MUpdate 更新规则对象 (update rule object)
 type GDAL[PO schema.Tabler, Where any, Update any] struct {
 	DAL
 }
@@ -211,16 +211,28 @@ func (gdal *GDAL[PO, Where, Update]) QueryByID(ctx context.Context, id int64) (*
 	return &po, err
 }
 
-// Update
+// MUpdate
 // @Description: 根据查询条件进行更新
 // @param ctx:
 // @param where: 查询条件
 // @param update: 更新值
 // @return int64: 被更新记录的个数
 // @return error:
-func (gdal *GDAL[PO, Where, Update]) Update(ctx context.Context, where *Where, update *Update) (int64, error) {
+func (gdal *GDAL[PO, Where, Update]) MUpdate(ctx context.Context, where *Where, update *Update) (int64, error) {
 	injectDefaultIfHas(where) // 如果配置了默认值，并且用户未指定该字段，则注入默认值
 	return gdal.DAL.Update(ctx, gdal.MakePO(), where, update)
+}
+
+// Update
+// @Description: 根据查询条件进行更新
+// @param ctx:
+// @param where: 查询条件
+// @param update: 更新值
+// @return error:
+func (gdal *GDAL[PO, Where, Update]) Update(ctx context.Context, where *Where, update *Update) error {
+	injectDefaultIfHas(where) // 如果配置了默认值，并且用户未指定该字段，则注入默认值
+	_, err := gdal.MUpdate(ctx, where, update)
+	return err
 }
 
 // UpdateByID

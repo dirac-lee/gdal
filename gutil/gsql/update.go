@@ -11,9 +11,9 @@ import (
 
 // BuildSQLUpdate
 //
-// @Description: 将 Update model struct 编译为 sql 语句中 update 的字典
+// @Description: 将 MUpdate model struct 编译为 sql 语句中 update 的字典
 //
-// @param update: Update model
+// @param update: MUpdate model
 //
 // @return m:
 //
