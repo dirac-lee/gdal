@@ -116,7 +116,7 @@ type UserUpdate struct {
       update data = JSON_MERGE_PATCH(data, '{"key":"val"}')
       ```
 
-### 2.2 定义业务 DAL
+### 2.2 Customize business DAL
 
 Embed *GDAL into business DAL, and indicate the 3 business structs。
 
