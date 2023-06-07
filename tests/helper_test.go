@@ -13,11 +13,14 @@ import (
 
 func GetUser(name string) *User {
 	var (
-		birthday = time.Now().Round(time.Second)
+		now      = time.Now()
+		birthday = now.Round(time.Second)
 		user     = User{
-			Name:     name,
-			Age:      18,
-			Birthday: &birthday,
+			Name:       name,
+			Age:        18,
+			Birthday:   &birthday,
+			CreateTime: now,
+			UpdateTime: now,
 		}
 	)
 	return &user
