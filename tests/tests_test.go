@@ -13,8 +13,11 @@ import (
 	"path/filepath"
 )
 
-var DB *gorm.DB
 var (
+	DB *gorm.DB
+)
+
+const (
 	mysqlDSN     = "gorm:gorm@tcp(localhost:9910)/gorm?charset=utf8&parseTime=True&loc=Local"
 	postgresDSN  = "user=gorm password=gorm dbname=gorm host=localhost port=9920 sslmode=disable TimeZone=Asia/Shanghai"
 	sqlserverDSN = "sqlserver://gorm:LoremIpsum86@localhost:9930?database=gorm"
