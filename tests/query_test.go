@@ -25,7 +25,7 @@ func TestFind(t *testing.T) {
 			t.Fatalf("errors happened when create users: %v", err)
 		}
 
-		t.Run("First", func(t *testing.T) {
+		Convey("First", func() {
 			var first tests.User
 			if err := DB.Where("name = ?", "find").First(&first).Error; err != nil {
 				t.Errorf("errors happened when query first: %v", err)
@@ -34,7 +34,7 @@ func TestFind(t *testing.T) {
 			}
 		})
 
-		t.Run("Last", func(t *testing.T) {
+		Convey("Last", func() {
 			var last tests.User
 			if err := DB.Where("name = ?", "find").Last(&last).Error; err != nil {
 				t.Errorf("errors happened when query last: %v", err)
@@ -48,19 +48,19 @@ func TestFind(t *testing.T) {
 			t.Errorf("errors happened when query find: %v, length: %v", err, len(all))
 		} else {
 			for idx, user := range users {
-				t.Run("FindAll#"+strconv.Itoa(idx+1), func(t *testing.T) {
+				Convey("FindAll#"+strconv.Itoa(idx+1), func() {
 					CheckUser(t, all[idx], user)
 				})
 			}
 		}
 
-		t.Run("FirstMap", func(t *testing.T) {
+		Convey("FirstMap", func() {
 			first := map[string]interface{}{}
 			if err := DB.Model(&tests.User{}).Where("name = ?", "find").First(first).Error; err != nil {
 				t.Errorf("errors happened when query first: %v", err)
 			} else {
 				for _, name := range []string{"Name", "Age", "Birthday"} {
-					t.Run(name, func(t *testing.T) {
+					Convey(name, func() {
 						dbName := DB.NamingStrategy.ColumnName("", name)
 
 						switch name {
@@ -85,13 +85,13 @@ func TestFind(t *testing.T) {
 			}
 		})
 
-		t.Run("FirstMapWithTable", func(t *testing.T) {
+		Convey("FirstMapWithTable", func() {
 			first := map[string]interface{}{}
 			if err := DB.Table("users").Where("name = ?", "find").Find(first).Error; err != nil {
 				t.Errorf("errors happened when query first: %v", err)
 			} else {
 				for _, name := range []string{"Name", "Age", "Birthday"} {
-					t.Run(name, func(t *testing.T) {
+					Convey(name, func() {
 						dbName := DB.NamingStrategy.ColumnName("", name)
 						resultType := reflect.ValueOf(first[dbName]).Type().Name()
 
@@ -117,13 +117,13 @@ func TestFind(t *testing.T) {
 			}
 		})
 
-		t.Run("FirstPtrMap", func(t *testing.T) {
+		Convey("FirstPtrMap", func() {
 			first := map[string]interface{}{}
 			if err := DB.Model(&tests.User{}).Where("name = ?", "find").First(&first).Error; err != nil {
 				t.Errorf("errors happened when query first: %v", err)
 			} else {
 				for _, name := range []string{"Name", "Age", "Birthday"} {
-					t.Run(name, func(t *testing.T) {
+					Convey(name, func() {
 						dbName := DB.NamingStrategy.ColumnName("", name)
 						reflectValue := reflect.Indirect(reflect.ValueOf(users[0]))
 						AssertEqual(t, first[dbName], reflectValue.FieldByName(name).Interface())
@@ -132,15 +132,15 @@ func TestFind(t *testing.T) {
 			}
 		})
 
-		t.Run("FirstSliceOfMap", func(t *testing.T) {
+		Convey("FirstSliceOfMap", func() {
 			allMap := []map[string]interface{}{}
 			if err := DB.Model(&tests.User{}).Where("name = ?", "find").Find(&allMap).Error; err != nil {
 				t.Errorf("errors happened when query find: %v", err)
 			} else {
 				for idx, user := range users {
-					t.Run("FindAllMap#"+strconv.Itoa(idx+1), func(t *testing.T) {
+					Convey("FindAllMap#"+strconv.Itoa(idx+1), func() {
 						for _, name := range []string{"Name", "Age", "Birthday"} {
-							t.Run(name, func(t *testing.T) {
+							Convey(name, func() {
 								dbName := DB.NamingStrategy.ColumnName("", name)
 
 								switch name {
@@ -167,15 +167,15 @@ func TestFind(t *testing.T) {
 			}
 		})
 
-		t.Run("FindSliceOfMapWithTable", func(t *testing.T) {
+		Convey("FindSliceOfMapWithTable", func() {
 			allMap := []map[string]interface{}{}
 			if err := DB.Table("users").Where("name = ?", "find").Find(&allMap).Error; err != nil {
 				t.Errorf("errors happened when query find: %v", err)
 			} else {
 				for idx, user := range users {
-					t.Run("FindAllMap#"+strconv.Itoa(idx+1), func(t *testing.T) {
+					Convey("FindAllMap#"+strconv.Itoa(idx+1), func() {
 						for _, name := range []string{"Name", "Age", "Birthday"} {
-							t.Run(name, func(t *testing.T) {
+							Convey(name, func() {
 								dbName := DB.NamingStrategy.ColumnName("", name)
 								resultType := reflect.ValueOf(allMap[idx][dbName]).Type().Name()
 
@@ -208,7 +208,7 @@ func TestFind(t *testing.T) {
 			t.Errorf("errors happened when query find with in clause: %v, length: %v", err, len(models))
 		} else {
 			for idx, user := range users {
-				t.Run("FindWithInClause#"+strconv.Itoa(idx+1), func(t *testing.T) {
+				Convey("FindWithInClause#"+strconv.Itoa(idx+1), func() {
 					CheckUser(t, models[idx], user)
 				})
 			}
@@ -220,7 +220,7 @@ func TestFind(t *testing.T) {
 			t.Errorf("errors happened when query find with in clause: %v, length: %v", err, len(models2))
 		} else {
 			for idx, user := range users {
-				t.Run("FindWithInClause#"+strconv.Itoa(idx+1), func(t *testing.T) {
+				Convey("FindWithInClause#"+strconv.Itoa(idx+1), func() {
 					CheckUser(t, models2[idx], user)
 				})
 			}
@@ -232,7 +232,7 @@ func TestFind(t *testing.T) {
 			t.Errorf("errors happened when query find with in clause: %v, length: %v", err, len(models3))
 		} else {
 			for idx, user := range users[:2] {
-				t.Run("FindWithInClause#"+strconv.Itoa(idx+1), func(t *testing.T) {
+				Convey("FindWithInClause#"+strconv.Itoa(idx+1), func() {
 					CheckUser(t, models3[idx], user)
 				})
 			}
