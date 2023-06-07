@@ -24,7 +24,7 @@ func TestFind(t *testing.T) {
 			if err := DB.Where("name = ?", "find").First(&first).Error; err != nil {
 				t.Errorf("errors happened when query first: %v", err)
 			} else {
-				CheckUser(t, first, users[0])
+				CheckUser(first, users[0])
 			}
 		})
 
@@ -33,7 +33,7 @@ func TestFind(t *testing.T) {
 			if err := DB.Where("name = ?", "find").Last(&last).Error; err != nil {
 				t.Errorf("errors happened when query last: %v", err)
 			} else {
-				CheckUser(t, last, users[2])
+				CheckUser(last, users[2])
 			}
 		})
 	})

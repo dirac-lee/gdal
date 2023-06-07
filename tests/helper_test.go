@@ -26,24 +26,23 @@ func GetUser(name string) *User {
 	return &user
 }
 
-func CheckUserUnscoped(t *testing.T, user User, expect User) {
-	doCheckUser(t, user, expect, true)
+func CheckUserUnscoped(user User, expect User) {
+	doCheckUser(user, expect, true)
 }
 
-func CheckUser(t *testing.T, user User, expect User) {
-	doCheckUser(t, user, expect, false)
+func CheckUser(user User, expect User) {
+	doCheckUser(user, expect, false)
 }
 
-func doCheckUser(t *testing.T, user User, expect User, unscoped bool) {
+func doCheckUser(user User, expect User, unscoped bool) {
 	if user.ID != 0 {
 		var newUser User
 		err := db(unscoped).Where("id = ?", user.ID).First(&newUser).Error
 		So(err, ShouldBeNil)
 
-		So(newUser, ShouldResemble, user)
-
+		AssertObjEqual(newUser, user)
 	}
-	So(user, ShouldResemble, expect)
+	AssertObjEqual(user, expect)
 }
 
 func tidbSkip(t *testing.T, reason string) {
