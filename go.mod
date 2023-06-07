@@ -5,9 +5,9 @@ go 1.20
 require (
 	github.com/bytedance/mockey v1.2.0
 	github.com/smartystreets/goconvey v1.8.0
-	gorm.io/driver/mysql v1.4.4
+	gorm.io/driver/mysql v1.5.1
 	gorm.io/driver/postgres v1.5.2
-	gorm.io/driver/sqlite v1.5.0
+	gorm.io/driver/sqlite v1.5.1
 	gorm.io/driver/sqlserver v1.5.0
 	gorm.io/gorm v1.25.1
 	gorm.io/hints v1.1.2
