@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
 	. "gorm.io/gorm/utils/tests"
 )
 
@@ -72,6 +73,34 @@ func GetUser(name string, config Config) *User {
 	}
 
 	return &user
+}
+
+func CheckPetUnscoped(t *testing.T, pet Pet, expect Pet) {
+	doCheckPet(t, pet, expect, true)
+}
+
+func CheckPet(t *testing.T, pet Pet, expect Pet) {
+	doCheckPet(t, pet, expect, false)
+}
+
+func doCheckPet(t *testing.T, pet Pet, expect Pet, unscoped bool) {
+	if pet.ID != 0 {
+		var newPet Pet
+		if err := db(unscoped).Where("id = ?", pet.ID).First(&newPet).Error; err != nil {
+			t.Fatalf("errors happened when query: %v", err)
+		} else {
+			AssertObjEqual(t, newPet, pet, "ID", "CreatedAt", "UpdatedAt", "DeletedAt", "UserID", "Name")
+			AssertObjEqual(t, newPet, expect, "ID", "CreatedAt", "UpdatedAt", "DeletedAt", "UserID", "Name")
+		}
+	}
+
+	AssertObjEqual(t, pet, expect, "ID", "CreatedAt", "UpdatedAt", "DeletedAt", "UserID", "Name")
+
+	AssertObjEqual(t, pet.Toy, expect.Toy, "ID", "CreatedAt", "UpdatedAt", "DeletedAt", "Name", "OwnerID", "OwnerType")
+
+	if expect.Toy.Name != "" && expect.Toy.OwnerType != "pets" {
+		t.Errorf("toys's OwnerType, expect: %v, got %v", "pets", expect.Toy.OwnerType)
+	}
 }
 
 func CheckUserUnscoped(t *testing.T, user User, expect User) {

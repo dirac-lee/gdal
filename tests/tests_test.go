@@ -1,16 +1,19 @@
 package tests_test
 
 import (
-	. "github.com/dirac-lee/gdal/tests"
+	"log"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"time"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"log"
-	"os"
-	"path/filepath"
+	. "gorm.io/gorm/utils/tests"
 )
 
 var (
@@ -107,7 +110,11 @@ func OpenTestConnection() (db *gorm.DB, err error) {
 
 func RunMigrations() {
 	var err error
-	allModels := []interface{}{&User{}}
+	allModels := []interface{}{&User{}, &Account{}, &Pet{}, &Company{}, &Toy{}, &Language{}, &Coupon{}, &CouponProduct{}, &Order{}, &Parent{}, &Child{}}
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(allModels), func(i, j int) { allModels[i], allModels[j] = allModels[j], allModels[i] })
+
+	DB.Migrator().DropTable("user_friends", "user_speaks")
 
 	if err = DB.Migrator().DropTable(allModels...); err != nil {
 		log.Printf("Failed to drop table, got error %v\n", err)
