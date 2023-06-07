@@ -3,6 +3,7 @@ package tests_test
 import (
 	. "github.com/smartystreets/goconvey/convey"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -31,6 +32,44 @@ func GetUser(name string, config Config) *User {
 			Birthday: &birthday,
 		}
 	)
+
+	if config.Account {
+		user.Account = Account{Number: name + "_account"}
+	}
+
+	for i := 0; i < config.Pets; i++ {
+		user.Pets = append(user.Pets, &Pet{Name: name + "_pet_" + strconv.Itoa(i+1)})
+	}
+
+	for i := 0; i < config.Toys; i++ {
+		user.Toys = append(user.Toys, Toy{Name: name + "_toy_" + strconv.Itoa(i+1)})
+	}
+
+	if config.Company {
+		user.Company = Company{Name: "company-" + name}
+	}
+
+	if config.Manager {
+		user.Manager = GetUser(name+"_manager", Config{})
+	}
+
+	for i := 0; i < config.Team; i++ {
+		user.Team = append(user.Team, *GetUser(name+"_team_"+strconv.Itoa(i+1), Config{}))
+	}
+
+	for i := 0; i < config.Languages; i++ {
+		name := name + "_locale_" + strconv.Itoa(i+1)
+		language := Language{Code: name, Name: name}
+		user.Languages = append(user.Languages, language)
+	}
+
+	for i := 0; i < config.Friends; i++ {
+		user.Friends = append(user.Friends, GetUser(name+"_friend_"+strconv.Itoa(i+1), Config{}))
+	}
+
+	if config.NamedPet {
+		user.NamedPet = &Pet{Name: name + "_namepet"}
+	}
 
 	return &user
 }
