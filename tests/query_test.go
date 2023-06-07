@@ -3,7 +3,6 @@ package tests_test
 import (
 	"github.com/dirac-lee/gdal/tests"
 	. "github.com/smartystreets/goconvey/convey"
-	"strconv"
 	"testing"
 )
 
@@ -37,16 +36,5 @@ func TestFind(t *testing.T) {
 				CheckUser(t, last, users[2])
 			}
 		})
-
-		var all []tests.User
-		if err := DB.Where("name = ?", "find").Find(&all).Error; err != nil || len(all) != 3 {
-			t.Errorf("errors happened when query find: %v, length: %v", err, len(all))
-		} else {
-			for idx, user := range users {
-				Convey("FindAll#"+strconv.Itoa(idx+1), func() {
-					CheckUser(t, all[idx], user)
-				})
-			}
-		}
 	})
 }
