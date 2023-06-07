@@ -220,7 +220,7 @@ func TestFind(t *testing.T) {
 			t.Errorf("errors happened when query find with in clause: %v, length: %v", err, len(models2))
 		} else {
 			for idx, user := range users {
-				Convey("FindWithInClause#"+strconv.Itoa(idx+1), func() {
+				Convey("array FindWithInClause#"+strconv.Itoa(idx+1), func() {
 					CheckUser(t, models2[idx], user)
 				})
 			}
@@ -232,7 +232,7 @@ func TestFind(t *testing.T) {
 			t.Errorf("errors happened when query find with in clause: %v, length: %v", err, len(models3))
 		} else {
 			for idx, user := range users[:2] {
-				Convey("FindWithInClause#"+strconv.Itoa(idx+1), func() {
+				Convey("smaller array FindWithInClause#"+strconv.Itoa(idx+1), func() {
 					CheckUser(t, models3[idx], user)
 				})
 			}
