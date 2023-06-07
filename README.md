@@ -1,8 +1,11 @@
 # GDAL
 
-Generic Data Access Layer. Based on grom and provide more friendly ORM syntax.
+[![go report card](https://goreportcard.com/badge/github.com/dirac-lee/gdal "go report card")](https://goreportcard.com/report/github.com/dirac-lee/gdal)
+[![test status](https://github.com/dirac-lee/gdal/workflows/tests/badge.svg?branch=master "test status")](https://github.com/dirac-lee/gdal/actions)
+[![MIT license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://opensource.org/licenses/MIT)
+[![Go.Dev reference](https://img.shields.io/badge/go.dev-reference-blue?logo=go&logoColor=white)](https://pkg.go.dev/gorm.io/gorm?tab=doc)
 
-[简体中文](./README_zh.md)
+A thoroughly object-relation mapping framework based on GORM. Struct object is all you need.
 
 ## Installation
 
