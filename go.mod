@@ -1,6 +1,6 @@
 module github.com/dirac-lee/gdal
 
-go 1.20
+go 1.18
 
 require (
 	github.com/bytedance/mockey v1.2.4
