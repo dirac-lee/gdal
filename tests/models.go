@@ -1,11 +1,12 @@
 package tests
 
 import (
+	"gorm.io/gorm"
 	"time"
 )
 
 type User struct {
-	ID         int64      `gorm:"column:id;primarykey"`
+	gorm.Model
 	Name       string     `gorm:"column:name"`
 	Age        uint       `gorm:"column:age"`
 	Birthday   *time.Time `gorm:"column:birthday"`
