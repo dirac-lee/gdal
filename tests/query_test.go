@@ -3,19 +3,18 @@ package tests_test
 import (
 	. "github.com/bytedance/mockey"
 	. "github.com/smartystreets/goconvey/convey"
+	. "gorm.io/gorm/utils/tests"
 	"reflect"
 	"strconv"
 	"testing"
 	"time"
-
-	. "github.com/dirac-lee/gdal/tests"
 )
 
 func TestGORMFind(t *testing.T) {
 	users := []User{
-		*GetUser("find"),
-		*GetUser("find"),
-		*GetUser("find"),
+		*GetUser("find", Config{}),
+		*GetUser("find", Config{}),
+		*GetUser("find", Config{}),
 	}
 
 	PatchConvey(t.Name(), t, func() {

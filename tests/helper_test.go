@@ -1,28 +1,37 @@
 package tests_test
 
 import (
+	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"testing"
 	"time"
 
-	. "github.com/smartystreets/goconvey/convey"
-
-	. "github.com/dirac-lee/gdal/tests"
 	"gorm.io/gorm"
+	. "gorm.io/gorm/utils/tests"
 )
 
-func GetUser(name string) *User {
+type Config struct {
+	Account   bool
+	Pets      int
+	Toys      int
+	Company   bool
+	Manager   bool
+	Team      int
+	Languages int
+	Friends   int
+	NamedPet  bool
+}
+
+func GetUser(name string, config Config) *User {
 	var (
-		now      = time.Now()
-		birthday = now.Round(time.Second)
+		birthday = time.Now().Round(time.Second)
 		user     = User{
-			Name:       name,
-			Age:        18,
-			Birthday:   &birthday,
-			CreateTime: now,
-			UpdateTime: now,
+			Name:     name,
+			Age:      18,
+			Birthday: &birthday,
 		}
 	)
+
 	return &user
 }
 
