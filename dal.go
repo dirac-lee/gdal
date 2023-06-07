@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/dirac-lee/gdal/gutil/genv"
 	"github.com/dirac-lee/gdal/gutil/gsql"
 	"gorm.io/gorm"
 	"gorm.io/plugin/dbresolver"
@@ -375,7 +376,7 @@ func (dal *dal) DB(options ...QueryOption) *gorm.DB {
 		return &gorm.DB{Error: gorm.ErrInvalidTransaction}
 	}
 	db := dal.db
-	if opt.debug {
+	if opt.debug || genv.InDebugEnv() {
 		db = db.Debug()
 	}
 	if opt.readMaster {

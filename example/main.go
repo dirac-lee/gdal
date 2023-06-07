@@ -2,20 +2,24 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/dirac-lee/gdal"
 	"github.com/dirac-lee/gdal/example/dal"
 	"github.com/dirac-lee/gdal/example/dal/model"
 	"github.com/dirac-lee/gdal/gutil/gptr"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"os"
 	"time"
 )
 
 const (
-	DemoDSN = "demo"
+	DemoDSN = "gorm:gorm@tcp(localhost:9910)/gorm?charset=utf8&parseTime=True&loc=Local"
 )
 
 func main() {
+	debug := os.Getenv("DEBUG")
+	fmt.Println(debug)
 	db, err := gorm.Open(mysql.Open(DemoDSN))
 	if err != nil {
 		panic(err)
