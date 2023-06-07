@@ -6,6 +6,9 @@ package genv
 
 import "os"
 
+// InDebugEnv
+//
+// @Description:  where has "DEBUG" environment.
 func InDebugEnv() bool {
 	return len(os.Getenv("DEBUG")) > 0
 }

@@ -178,6 +178,9 @@ func buildSQLWhereWithAndOption(rv reflect.Value, rt reflect.Type) (query string
 }
 
 // 遍历 field，使用 and 拼接 where 语句
+
+// fillSQLUpdateFieldMap walk through all the fields in `rv`, parsed to single where conditions, then join them with `AND`.
+// ⚠️  WARNING: empty slice []T{} is treated as zero value.
 func fillSQLWhereCondition(rv reflect.Value, rt reflect.Type) (query string, args []any, err error) {
 	args = []any{}
 	qq := new(strings.Builder)

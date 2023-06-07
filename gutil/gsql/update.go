@@ -11,28 +11,28 @@ import (
 
 // BuildSQLUpdate
 //
-// @Description: 将 MUpdate model struct 编译为 sql 语句中 update 的字典
+// @Description: build Update struct into sql update map
 //
-// @param update: MUpdate model
+// @param update: Update struct
 //
-// @return m:
+// @return m: map of sql update
 //
 // @return err:
 //
 // @example：
 //
-//	    // model 表
+//	    // model of table_abc
 //	    type TableAbc struct {
 //	        ID   int64  `gorm:"column:id"`
 //	        Name string `gorm:"column:name"`
 //	        Age  int    `gorm:"column:p_age"`
 //	    }
 //
-//	    func (Campaign) TableName() string {
+//	    func (TableAbc) TableName() string {
 //	    	return "table_abc"
 //	    }
 //
-//	    // 需要更新的字段
+//	    // fields need to update. ⚠️  WARNING: must be pointers
 //	    type TableAbcUpdate struct {
 //	        Name *string `sql_field:"name"`
 //	        Age  *int    `sql_field:"p_age"`
@@ -43,7 +43,7 @@ import (
 //	        Name: &name
 //	    }
 //
-//	    // 下面即 sql： update table_abc set name="byte-er" where id = 1
+//	    // SQL: update table_abc set name="byte-er" where id = 1
 //		attrs, err := BuildSQLUpdate(attrs)
 //	    if err != nil{
 //	        // do something
@@ -70,21 +70,23 @@ func BuildSQLUpdate(update any) (map[string]any, error) {
 	return m, nil
 }
 
-// 遍历 field，将非 nil 的值拼到 map 中
+// fillSQLUpdateFieldMap walk through all the fields in `rv`，insert non-zero fields into map.
+// ⚠️  WARNING: empty slice []T{} is treated as zero value.
 func fillSQLUpdateFieldMap(rv reflect.Value, st *sqlType) (map[string]any, error) {
 	m := make(map[string]any)
 	for _, name := range st.Names {
-		column := st.ColumnsMap[name] // 前置函数已经检查过，一定存在
+		column := st.ColumnsMap[name] // must be found, guaranteed by previous operations
 		data := rv.FieldByName(column.Name)
-		// 字段的值是 nil 直接忽略 不做处理
+		// skip nil
 		if data.Kind() == reflect.Ptr && data.IsNil() {
 			continue
 		}
+		// only supports one-level pointers
 		if data.Kind() == reflect.Ptr {
 			data = data.Elem()
 		}
 		if column.Expr != "" {
-			updater := updaterMap[column.Expr] // 前置函数已经检查过，一定存在
+			updater := updaterMap[column.Expr] // must be found, guaranteed by previous operations
 			if updaterResult := updater(column.Field, data.Interface()); updaterResult.SQL != "" {
 				m[column.Field] = updaterResult
 			}
@@ -96,9 +98,10 @@ func fillSQLUpdateFieldMap(rv reflect.Value, st *sqlType) (map[string]any, error
 	return m, nil
 }
 
-// SQLUpdater update语句生成器
+// SQLUpdater update SQL generator
 type SQLUpdater func(field string, data any) clause.Expr
 
+// updaterMap support `+`, `-` and `merge_json` so far
 var updaterMap = map[string]SQLUpdater{
 	"+": func(field string, data any) clause.Expr {
 		return gorm.Expr(field+" + ?", data)
@@ -122,6 +125,9 @@ var updaterMap = map[string]SQLUpdater{
 	},
 }
 
+// isMergeJSONStruct
+//
+// @Description: whether `v` can be a struct or a pointer to struct
 func isMergeJSONStruct(v any) bool {
 	vt := reflect.TypeOf(v)
 	if vt.Kind() == reflect.Ptr {
@@ -130,6 +136,9 @@ func isMergeJSONStruct(v any) bool {
 	return vt.Kind() == reflect.Struct
 }
 
+// mergeJSONStructToJSONMap
+//
+// @Description: convert struct to map by tag `json`
 func mergeJSONStructToJSONMap(v any) (map[string]any, error) {
 	vt := reflect.TypeOf(v)
 	vv := reflect.ValueOf(v)

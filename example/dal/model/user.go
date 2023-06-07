@@ -4,7 +4,9 @@
 // @Description:
 package model
 
-import "time"
+import (
+	"time"
+)
 
 // User db model struct, will be mapped to row of db by ORM.
 type User struct {
@@ -34,9 +36,9 @@ type UserWhere struct {
 type UserUpdate struct {
 	ID           *int64     `sql_field:"id"`
 	Name         *string    `sql_field:"name"`
-	Balance      *int64     `gorm:"column:balance"`
-	BalanceAdd   *int64     `gorm:"column:balance" sql_expr:"+"`
-	BalanceMinus *int64     `gorm:"column:balance" sql_expr:"-"`
+	Balance      *int64     `sql_field:"balance"`
+	BalanceAdd   *int64     `sql_field:"balance" sql_expr:"+"`
+	BalanceMinus *int64     `sql_field:"balance" sql_expr:"-"`
 	UpdateTime   *time.Time `sql_field:"update_time"`
 	Deleted      *bool      `sql_field:"deleted"`
 }

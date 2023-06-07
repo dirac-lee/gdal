@@ -7,28 +7,35 @@ import (
 	"github.com/dirac-lee/gdal/example/dal"
 	"github.com/dirac-lee/gdal/example/dal/model"
 	"github.com/dirac-lee/gdal/gutil/gptr"
+	"github.com/luci/go-render/render"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"log"
 	"os"
 	"time"
 )
 
+var (
+	DB *gorm.DB
+)
+
 const (
-	DemoDSN = "gorm:gorm@tcp(localhost:9910)/gorm?charset=utf8&parseTime=True&loc=Local"
+	MysqlDSN = "gorm:gorm@tcp(localhost:9910)/gorm?charset=utf8&parseTime=True&loc=Local"
 )
 
 func main() {
-	debug := os.Getenv("DEBUG")
-	fmt.Println(debug)
-	db, err := gorm.Open(mysql.Open(DemoDSN))
+	var err error
+	DB, err = gorm.Open(mysql.Open(MysqlDSN))
 	if err != nil {
 		panic(err)
 	}
 
-	ctx := context.Background()
-	userDAL := dal.NewUserDAL(db)
+	RunMigrations()
 
-	{ //创建单条记录
+	ctx := context.Background()
+	userDAL := dal.NewUserDAL(DB)
+
+	{ // create single record
 		now := time.Now()
 		po := model.User{
 			ID:         110,
@@ -38,10 +45,11 @@ func main() {
 			UpdateTime: now,
 			Deleted:    false,
 		}
-		userDAL.Create(ctx, &po)
+		err := userDAL.Create(ctx, &po)
+		fmt.Println(err)
 	}
 
-	{ // 创建多条记录
+	{ // multiple create
 		now := time.Now()
 		pos := []*model.User{
 			{
@@ -61,71 +69,72 @@ func main() {
 				Deleted:    false,
 			},
 		}
-		userDAL.MCreate(ctx, &pos)
+		numCreated, err := userDAL.MCreate(ctx, &pos)
+		fmt.Println(numCreated)
+		fmt.Println(err)
 	}
 
-	{ // 物理删除
-		where := &model.UserWhere{
-			IDIn: []int64{110, 120},
-		}
-		userDAL.Delete(ctx, where)
-	}
-
-	{ // 通过ID物理删除
-		userDAL.DeleteByID(ctx, 130)
-	}
-
-	{ // 更新
+	{ // update by where condition
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
 		update := &model.UserUpdate{
 			BalanceAdd: gptr.Of[int64](10),
 		}
-		userDAL.MUpdate(ctx, where, update)
+		numUpdate, err := userDAL.MUpdate(ctx, where, update)
+		fmt.Println(numUpdate)
+		fmt.Println(err)
 	}
 
-	{ // 通过 ID 更新
+	{ // update by id
 		update := &model.UserUpdate{
 			BalanceMinus: gptr.Of[int64](20),
 		}
-		userDAL.UpdateByID(ctx, 130, update)
+		err := userDAL.UpdateByID(ctx, 130, update)
+		fmt.Println(err)
 	}
 
-	{ // 通用查询
+	{ // general query
 		var pos []*model.User
 		where := &model.UserWhere{
 			NameLike: gptr.Of("dirac"),
 		}
-		userDAL.Find(ctx, &pos, where, gdal.WithDebug())
+		err := userDAL.Find(ctx, &pos, where, gdal.WithDebug())
+		fmt.Println(err)
+		fmt.Println(render.Render(pos))
 	}
 
-	{ // 查询多条记录
+	{ // multiple query
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
 		pos, err := userDAL.MQuery(ctx, where, gdal.WithDebug(), gdal.WithMaster())
-		println(pos, err)
+		fmt.Println(err)
+		fmt.Println(render.Render(pos))
 	}
 
-	{ // 分页查询1
+	{ // query by paging: method 1
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
 		pos, total, err := userDAL.MQueryByPaging(ctx, where, gptr.Of[int64](5), nil, gptr.Of("create_time desc"))
-		println(pos, total, err)
+		fmt.Println(err)
+		fmt.Println(total)
+		fmt.Println(render.Render(pos))
 	}
 
-	{ // 分页查询2
+	{ // query by paging: method 2
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
 		pos, total, err := userDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(5), gdal.WithOrder("create_time desc"), gdal.WithDebug())
-		println(pos, total, err)
+		fmt.Println(err)
+		fmt.Println(total)
+		fmt.Println(render.Render(pos))
 	}
 
-	{
-		finalErr := db.Transaction(func(tx *gorm.DB) error {
+	{ // transaction
+		finalErr := DB.Transaction(func(tx *gorm.DB) error {
 
 			update := &model.UserUpdate{
 				BalanceMinus: gptr.Of[int64](20),
@@ -142,6 +151,45 @@ func main() {
 
 			return nil // commit
 		})
-		println(finalErr)
+		fmt.Println(finalErr)
+	}
+
+	{ // 物理删除
+		where := &model.UserWhere{
+			IDIn: []int64{110, 120},
+		}
+		numDeleted, err := userDAL.Delete(ctx, where)
+		fmt.Println(numDeleted)
+		fmt.Println(err)
+	}
+
+	{ // 通过ID物理删除
+		numDeleted, err := userDAL.DeleteByID(ctx, 130)
+		fmt.Println(numDeleted)
+		fmt.Println(err)
+	}
+}
+
+func RunMigrations() {
+	var err error
+	allModels := []interface{}{&model.User{}}
+
+	DB.Migrator().DropTable("user_friends", "user_speaks")
+
+	if err = DB.Migrator().DropTable(allModels...); err != nil {
+		log.Printf("Failed to drop table, got error %v\n", err)
+		os.Exit(1)
+	}
+
+	if err = DB.AutoMigrate(allModels...); err != nil {
+		log.Printf("Failed to auto migrate, but got error %v\n", err)
+		os.Exit(1)
+	}
+
+	for _, m := range allModels {
+		if !DB.Migrator().HasTable(m) {
+			log.Printf("Failed to create table for %#v\n", m)
+			os.Exit(1)
+		}
 	}
 }
