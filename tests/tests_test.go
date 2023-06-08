@@ -1,6 +1,8 @@
 package tests_test
 
 import (
+	"context"
+	"github.com/dirac-lee/gdal"
 	"log"
 	"math/rand"
 	"os"
@@ -19,7 +21,9 @@ import (
 )
 
 var (
-	DB *gorm.DB
+	DB      *gorm.DB
+	UserDAL *gdal.GDAL[tests.User, tests.UserWhere, tests.UserUpdate]
+	ctx     = context.Background()
 )
 
 const (
@@ -52,6 +56,7 @@ func init() {
 			DB.Exec("PRAGMA foreign_keys = ON")
 		}
 	}
+	UserDAL = gdal.NewGDAL[tests.User, tests.UserWhere, tests.UserUpdate](DB)
 }
 
 func OpenTestConnection() (db *gorm.DB, err error) {
