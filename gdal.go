@@ -11,8 +11,8 @@ import (
 )
 
 // GDAL
-// @Description: 泛型 DAL，提供通用增删改查功能。
-// 业务 DAL 嵌套 *GDAL，并指定 PO、Where 和 MUpdate 结构体，然后进行针对性扩展。
+// @Description: Generic Data Access Layer.
+// business DAL embeds *GDAL，and assign PO、Where and Update struct，then extend it。
 // @param PO     持久对象 (persistent object)
 // @param Where  查询条件对象 (query condition object)
 // @param MUpdate 更新规则对象 (update rule object)
@@ -139,16 +139,20 @@ func (gdal *GDAL[PO, Where, Update]) MQueryByIDs(ctx context.Context, ids []int6
 }
 
 // MQueryByPagingOpt
-// @Description: 根据查询条件分页查询 (引用 Count 和 Find)
+// @Description: query by paging options (ref: Count and Find)
 // @param ctx:
-// @param where: 查询条件
-// @param options: 分页配置
-// @return []*PO: 本页记录
-// @return int64: 满足查询条件的记录总数
+// @param where: where condition
+// @param options: paging options
+// @return []*PO: records in current page
+// @return int64: num of total records satisfy where condition
 // @return error:
 func (gdal *GDAL[PO, Where, Update]) MQueryByPagingOpt(ctx context.Context, where *Where, options ...QueryOption) ([]*PO, int64, error) {
 	count, err := gdal.Count(ctx, where)
-	if err != nil || count == 0 {
+	if err != nil || count == 0 { // skip query when count = 0
+		return nil, 0, err
+	}
+	opt := MakeQueryConfig(options)
+	if opt.Limit != nil && *opt.Limit == 0 { // skip query when limit = 0
 		return nil, 0, err
 	}
 
