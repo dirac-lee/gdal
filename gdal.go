@@ -153,7 +153,7 @@ func (gdal *GDAL[PO, Where, Update]) MQueryByPagingOpt(ctx context.Context, wher
 	}
 	opt := MakeQueryConfig(options)
 	if opt.Limit != nil && *opt.Limit == 0 { // skip query when limit = 0
-		return nil, 0, err
+		return nil, count, err
 	}
 
 	var pos []*PO
