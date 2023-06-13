@@ -1,12 +1,9 @@
-// Package tests
-// @Author liming.dirac
-// @Date 2023/6/8
-// @Description:
 package tests
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
 	"reflect"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func AssertObjEqual(r, e any, names ...string) {

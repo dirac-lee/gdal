@@ -1,8 +1,9 @@
 package tests
 
 import (
-	"github.com/dirac-lee/gdal/gutil/gptr"
 	"time"
+
+	"github.com/dirac-lee/gdal/gutil/gptr"
 )
 
 type User struct {

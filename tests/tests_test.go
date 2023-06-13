@@ -2,12 +2,13 @@ package tests_test
 
 import (
 	"context"
-	"github.com/dirac-lee/gdal"
 	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/dirac-lee/gdal"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"

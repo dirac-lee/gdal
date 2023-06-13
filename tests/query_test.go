@@ -1,10 +1,13 @@
 package tests_test
 
 import (
+	"github.com/dirac-lee/gdal"
+	"testing"
+	"time"
+
 	"github.com/dirac-lee/gdal/gutil/gptr"
 	"github.com/dirac-lee/gdal/tests"
 	. "github.com/smartystreets/goconvey/convey"
-	"testing"
 )
 
 func TestFind(t *testing.T) {
@@ -32,5 +35,46 @@ func TestFind(t *testing.T) {
 			}
 			CheckUser(*first, *users[0])
 		})
+
+		Convey("Find", func() {
+			var users []tests.User
+			where := &tests.UserWhere{
+				Active:     gptr.Of(true),
+				BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+				BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+			}
+			err := UserDAL.Find(ctx, &users, where, gdal.WithLimit(10), gdal.WithOrder("birthday"))
+			So(err, ShouldBeNil)
+		})
+
+		Convey("Count", func() {
+			where := &tests.UserWhere{
+				Active:     gptr.Of(true),
+				BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+				BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+			}
+			count, err := UserDAL.Count(ctx, where)
+			So(count, ShouldEqual, 0)
+			So(err, ShouldBeNil)
+		})
+
+		Convey("MQueryByPagingOpt", func() {
+			where := &tests.UserWhere{
+				Active:     gptr.Of(true),
+				BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+				BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+			}
+			users, total, err := UserDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(10), gdal.WithOrder("birthday"))
+			So(users, ShouldEqual, nil)
+			So(total, ShouldEqual, 0)
+			So(err, ShouldBeNil)
+		})
+
+		Convey("QueryByID", func() {
+			users, err := UserDAL.QueryByID(ctx, 123)
+			So(users, ShouldEqual, nil)
+			So(err, ShouldBeNil)
+		})
+
 	})
 }
