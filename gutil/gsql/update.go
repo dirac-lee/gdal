@@ -3,23 +3,20 @@ package gsql
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
+
 	"github.com/dirac-lee/gdal/gutil/greflect"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"reflect"
 )
 
-// BuildSQLUpdate
+// BuildSQLUpdate build Update struct into sql update map
 //
-// @Description: build Update struct into sql update map
+// 💡 HINT:
 //
-// @param update: Update struct
+// ⚠️  WARNING: fields of update must be pointers
 //
-// @return m: map of sql update
-//
-// @return err:
-//
-// @example：
+// 🚀 example:
 //
 //	    // model of table_abc
 //	    type TableAbc struct {
@@ -32,7 +29,7 @@ import (
 //	    	return "table_abc"
 //	    }
 //
-//	    // fields need to update. ⚠️  WARNING: must be pointers
+//	    // fields need to update.
 //	    type TableAbcUpdate struct {
 //	        Name *string `sql_field:"name"`
 //	        Age  *int    `sql_field:"p_age"`
@@ -71,7 +68,14 @@ func BuildSQLUpdate(update any) (map[string]any, error) {
 }
 
 // fillSQLUpdateFieldMap walk through all the fields in `rv`，insert non-zero fields into map.
+//
+// 💡 HINT:
+//
 // ⚠️  WARNING: empty slice []T{} is treated as zero value.
+//
+// 🚀 example:
+//
+//
 func fillSQLUpdateFieldMap(rv reflect.Value, st *sqlType) (map[string]any, error) {
 	m := make(map[string]any)
 	for _, name := range st.Names {
@@ -125,9 +129,15 @@ var updaterMap = map[string]SQLUpdater{
 	},
 }
 
-// isMergeJSONStruct
+// isMergeJSONStruct whether `v` can be a struct or a pointer to struct
 //
-// @Description: whether `v` can be a struct or a pointer to struct
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
+//
+//
 func isMergeJSONStruct(v any) bool {
 	vt := reflect.TypeOf(v)
 	if vt.Kind() == reflect.Ptr {
@@ -136,9 +146,15 @@ func isMergeJSONStruct(v any) bool {
 	return vt.Kind() == reflect.Struct
 }
 
-// mergeJSONStructToJSONMap
+// mergeJSONStructToJSONMap convert struct to map by tag `json`
 //
-// @Description: convert struct to map by tag `json`
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
+//
+//
 func mergeJSONStructToJSONMap(v any) (map[string]any, error) {
 	vt := reflect.TypeOf(v)
 	vv := reflect.ValueOf(v)

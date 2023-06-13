@@ -1,35 +1,30 @@
 package greflect
 
 import (
-	"github.com/dirac-lee/gdal/gutil/gerror"
 	"reflect"
+
+	"github.com/dirac-lee/gdal/gutil/gerror"
 )
 
-// Implements
+// Implements whether type `T` implements `Interface`
 //
-// @Description: whether type `T` implements `Interface`
+// 💡 HINT: return zero value of `T` if implements; otherwise, nil
 //
-// @return Interface: return zero value of `T` if implements; otherwise, nil
+// ⚠️  WARNING:
 //
-// @return bool: whether implements
+// 🚀 example:
 func Implements[Interface any](v any) (Interface, bool) {
 	i, ok := v.(Interface)
 	return i, ok
 }
 
-// GetElemValueTypeOfPtr
+// GetElemValueTypeOfPtr get the element struct Value and Type if `rv` is a pointer to struct; otherwise, return `rv`'s.
 //
-// @Description: get the element struct Value and Type if `rv` is a pointer to struct; otherwise, return `rv`'s.
+// 💡 HINT:
 //
-// @param rv: pointer (maybe deep) to struct
+// ⚠️  WARNING:
 //
-// @return reflect.Value: element struct Value
-//
-// @return reflect.Type: element struct Type
-//
-// @return error: when `rv` is invalid or element is not a struct
-//
-// @example
+// 🚀 example:
 //
 //	u := &User{ ID: 110, Name: "Bob" }
 //	rv := reflect.ValueOf(&u)
@@ -46,15 +41,13 @@ func GetElemValueTypeOfPtr(rv reflect.Value) (reflect.Value, reflect.Type, error
 	return rv, rv.Type(), nil
 }
 
-// GetElemValueOfPtr
+// GetElemValueOfPtr get the element struct Value if `rv` is a pointer to struct; otherwise, return `rv`'s.
 //
-// @Description: get the element struct Value if `rv` is a pointer to struct; otherwise, return `rv`'s.
+// 💡 HINT:
 //
-// @param rv: pointer (maybe deep) to struct
+// ⚠️  WARNING:
 //
-// @return reflect.Value: element struct Value
-//
-// @example
+// 🚀 example:
 //
 //	u := &User{ ID: 110, Name: "Bob" }
 //	rv := reflect.ValueOf(&u)
@@ -76,15 +69,13 @@ func GetElemValueOfPtr(rv reflect.Value) (reflect.Value, error) {
 	}
 }
 
-// GetElemStructType
+// GetElemStructType get the base struct type of pointer, slice or array
 //
-// @Description: 获取指针、切片、数组底层 struct 数据类型。
+// 💡 HINT:
 //
-// @param rt: embedding of pointer (maybe deep), slice or array to struct.
+// ⚠️  WARNING:
 //
-// @return reflect.Type: element struct Type
-//
-// @example
+// 🚀 example:
 //
 //	u := []User{{ID: 110, Name: "Bob"}, {ID: 120, Name: "Dirac"}}
 //	rv := reflect.TypeOf(&u)

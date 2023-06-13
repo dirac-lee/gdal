@@ -2,21 +2,25 @@ package gdal
 
 import (
 	"context"
+
 	"github.com/dirac-lee/gdal/gutil/greflect"
 	"gorm.io/hints"
 )
 
-// ForceIndexer
-// @Description: Where 指定的强制索引。不实现或返回空串则不指定。
+// ForceIndexer assign force index for Where. no force index when return "" or unimplemented.
+//
+// ⚠️  WARNING: please implement ForceIndexer for Where in spite of *Where
 type ForceIndexer interface {
 	ForceIndex() string
 }
 
-// forceIndexIfHas
-// @Description: 如果 Where 实现了 ForceIndexer 接口，走 ForceIndexer 指定的索引，否则由数据库自选
-// ❗请为️ Where 而不是 *Where 实现此接口，因为这里使用 Where 来判断是否实现该接口
-// @param ctx:
-// @return *GDAL
+// forceIndexIfHas  if Where implements ForceIndexer，force the index by ForceIndexer, otherwise, it depends on db
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING: please implement ForceIndexer for Where in spite of *Where
+//
+// 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) forceIndexIfHas(ctx context.Context, where any) *GDAL[PO, Where, Update] {
 	txDAL := gdal
 	var forceIndex string

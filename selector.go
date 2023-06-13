@@ -1,21 +1,19 @@
 package gdal
 
 import (
-	"github.com/dirac-lee/gdal/gutil/gerror"
-	"github.com/dirac-lee/gdal/gutil/greflect"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/dirac-lee/gdal/gutil/gerror"
+	"github.com/dirac-lee/gdal/gutil/greflect"
 )
 
 var (
 	type2Selector sync.Map // struct type -> selector []string
 )
 
-// GetSelectorFromPOs
-// @Description: 读取 pos 类型底层 struct 的 gorm tag，构造 []string
-// @param pos:
-// @return []string:
+// GetSelectorFromPOs read pos read gorm tag from pos, then build []string of selector
 func GetSelectorFromPOs(pos any) ([]string, error) {
 	rt := reflect.TypeOf(pos)
 	structType, err := greflect.GetElemStructType(rt)
@@ -33,10 +31,7 @@ func getSelectorFromStructType(structType reflect.Type) ([]string, error) {
 	return getSelectorFromStructTypeSlow(structType)
 }
 
-// getSelectorFromStructTypeSlow
-// @Description: 不用缓存，读取 structType 的 gorm tag，构造 []string
-// @param structType:
-// @return []string:
+// getSelectorFromStructTypeSlow read gorm tag from structType, then build []string of selector
 func getSelectorFromStructTypeSlow(structType reflect.Type) ([]string, error) {
 	if structType.Kind() != reflect.Struct {
 		return nil, gerror.GetSelectorFromNonStructErr(structType)
@@ -56,10 +51,7 @@ func getSelectorFromStructTypeSlow(structType reflect.Type) ([]string, error) {
 	return selector, nil
 }
 
-// getKVsFromTag
-// @Description: 从 `k1:v1;k2:v2;...` 格式的 tag 中读取 kv map
-// @param tag:
-// @return map[string]string:
+// getKVsFromTag translate tag formatted of `k1:v1;k2:v2;...` to kv map
 func getKVsFromTag(tag string) (map[string]string, error) {
 	kvs := strings.Split(tag, ";")
 	kvMap := make(map[string]string, len(kvs))

@@ -1,7 +1,3 @@
-// Package model
-// @Author liming.dirac
-// @Date 2023/6/4
-// @Description:
 package model
 
 import (

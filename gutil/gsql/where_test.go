@@ -1,7 +1,3 @@
-// Package gsql
-// @Author liming.dirac
-// @Date 2023/6/5
-// @Description:
 package gsql
 
 import (

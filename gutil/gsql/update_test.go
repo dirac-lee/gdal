@@ -1,15 +1,12 @@
-// Package gsql
-// @Author liming.dirac
-// @Date 2023/6/5
-// @Description:
 package gsql
 
 import (
+	"testing"
+
 	. "github.com/bytedance/mockey"
 	"github.com/dirac-lee/gdal/gutil/gptr"
 	. "github.com/smartystreets/goconvey/convey"
 	"gorm.io/gorm/clause"
-	"testing"
 )
 
 func TestBuildSQLUpdate(t *testing.T) {

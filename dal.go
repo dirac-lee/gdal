@@ -4,15 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/dirac-lee/gdal/gutil/genv"
+	"reflect"
+
 	"github.com/dirac-lee/gdal/gutil/gsql"
 	"gorm.io/gorm"
 	"gorm.io/plugin/dbresolver"
-	"reflect"
 )
 
-// DAL
-// @Description: Data Access Layer
+// DAL Data Access Layer
 type DAL interface {
 	Create(ctx context.Context, po any) error
 	Save(ctx context.Context, po any) (int64, error)
@@ -26,19 +25,12 @@ type DAL interface {
 	DB(options ...QueryOption) *gorm.DB
 }
 
-// dal
-// @Description: Data Access Layer Instance
+// dal Data Access Layer Instance
 type dal struct {
 	db *gorm.DB
 }
 
-// NewDAL
-//
-// @Description: new dal
-//
-// @param db:
-//
-// @return DAL:
+// NewDAL new dal
 func NewDAL(tx *gorm.DB) DAL {
 	cli := &dal{
 		db: tx,
@@ -46,16 +38,7 @@ func NewDAL(tx *gorm.DB) DAL {
 	return cli
 }
 
-// Create
-//
-// @Description: create a record of po
-//
-// @param ctx:
-// @param po: db model struct
-//
-// @return error:
-//
-// @example
+// Create create a record of po
 func (dal *dal) Create(ctx context.Context, po any) error {
 	db := dal.DBWithCtx(ctx)
 	if db.Error != nil {
@@ -68,17 +51,7 @@ func (dal *dal) Create(ctx context.Context, po any) error {
 	return nil
 }
 
-// Save
-//
-// @Description: update, or insert when conflict.
-//
-// @param ctx:
-// @param po: db model struct
-//
-// @return int64:
-// @return error:
-//
-// @example
+// Save update, or insert when conflicted.
 func (dal *dal) Save(ctx context.Context, po any) (int64, error) {
 	db := dal.DBWithCtx(ctx)
 	if db.Error != nil {
@@ -92,18 +65,7 @@ func (dal *dal) Save(ctx context.Context, po any) (int64, error) {
 	return res.RowsAffected, nil
 }
 
-// Delete
-//
-// @Description: delete by Where struct
-//
-// @param ctx:
-// @param po: db model struct
-// @param where: db where struct
-//
-// @return int64: num of rows affected
-// @return error:
-//
-// @example
+// Delete delete by Where struct
 func (dal *dal) Delete(ctx context.Context, po any, where any) (int64, error) {
 	db := dal.DBWithCtx(ctx)
 	if db.Error != nil {
@@ -121,19 +83,7 @@ func (dal *dal) Delete(ctx context.Context, po any, where any) (int64, error) {
 	return db.RowsAffected, db.Error
 }
 
-// Update
-//
-// @Description: update by Where struct & Update struct. The Where struct mustn't be nil.
-//
-// @param ctx:
-// @param po: db model struct
-// @param where: db where struct
-// @param update: db update struct
-//
-// @return int64: num of rows affected
-// @return error:
-//
-// @example
+// Update updates by Where struct & Update struct. The Where struct mustn't be nil.
 func (dal *dal) Update(ctx context.Context, po any, where any, update any) (int64, error) {
 	db := dal.DBWithCtx(ctx)
 	if db.Error != nil {
@@ -162,18 +112,13 @@ func (dal *dal) Update(ctx context.Context, po any, where any, update any) (int6
 	return res.RowsAffected, nil
 }
 
-// Find
+// Find finds the records by Where struct
 //
-// @Description: find the records by Where struct
+// 💡 HINT: options can be WithLimit, WithOffset, WithOrder, ...
 //
-// @param ctx:
-// @param po: slice of db model struct to be injected by db rows
-// @param where: db where struct
-// @param options: db query options, e.g. WithLimit, WithOffset, WithOrder, ...
+// ⚠️  WARNING:
 //
-// @return err:
-//
-// @example
+// 🚀 example:
 func (dal *dal) Find(ctx context.Context, po any, where any, options ...QueryOption) (err error) {
 	var db *gorm.DB
 	db, err = dal.whereDB(ctx, where, options...)
@@ -187,18 +132,7 @@ func (dal *dal) Find(ctx context.Context, po any, where any, options ...QueryOpt
 	return nil
 }
 
-// First
-//
-// @Description: find the first records by Where struct
-//
-// @param ctx:
-// @param po: db model struct to be injected by db row
-// @param where: db where struct
-// @param options: db query options, e.g. WithLimit, WithOffset, WithOrder, ...
-//
-// @return error:
-//
-// @example
+// First find the first records by Where struct
 func (dal *dal) First(ctx context.Context, po, where any, options ...QueryOption) error {
 	db, err := dal.whereDB(ctx, where, options...)
 	if err != nil {
@@ -212,23 +146,7 @@ func (dal *dal) First(ctx context.Context, po, where any, options ...QueryOption
 	return nil
 }
 
-// Upsert
-//
-// @Description: update (when exists) or insert (when absent).
-//
-// The db model struct should include field `ID` thus we can
-// use ID field to identify the primary key and judge whether
-// the record found
-//
-// @param ctx:
-// @param po:
-// @param where:
-// @param update:
-//
-// @return isCreated:
-// @return err:
-//
-// @example
+// Upsert update (when exists) or insert (when absent).
 func (dal *dal) Upsert(ctx context.Context, po, where, update any) (isCreated bool, err error) {
 	db := dal.DBWithCtx(ctx)
 	if db.Error != nil {
@@ -265,18 +183,7 @@ func (dal *dal) Upsert(ctx context.Context, po, where, update any) (isCreated bo
 	return isCreated, nil
 }
 
-// Count
-//
-// @Description: count by Where struct
-//
-// @param ctx:
-// @param po: db model struct
-// @param where: db where struct
-//
-// @return int32: count
-// @return error:
-//
-// @example
+// Count get the count by Where struct
 func (dal *dal) Count(ctx context.Context, po any, where any) (int32, error) {
 	db := dal.DBWithCtx(ctx)
 	if db.Error != nil {
@@ -295,18 +202,7 @@ func (dal *dal) Count(ctx context.Context, po any, where any) (int32, error) {
 	return int32(count), nil
 }
 
-// Exist
-//
-// @Description: judge if record found by where struct
-//
-// @param ctx:
-// @param po: db model struct
-// @param where: db where struct
-//
-// @return bool: where found
-// @return error:
-//
-// @example
+// Exist judge if record found by where struct
 func (dal *dal) Exist(ctx context.Context, po any, where any) (bool, error) {
 	db, err := dal.whereDB(ctx, where)
 	if err != nil {
@@ -322,8 +218,6 @@ func (dal *dal) Exist(ctx context.Context, po any, where any) (bool, error) {
 	return true, nil
 }
 
-// whereDB 获取 where 组装得到的 db
-// 注意：如果想拿到一个 db，然后先查后改，请使用 DB 函数，不要用 Where 函数
 func (dal *dal) whereDB(ctx context.Context, where any, options ...QueryOption) (db *gorm.DB, err error) {
 	db = dal.DBWithCtx(ctx, options...)
 	if db.Error != nil {
@@ -356,29 +250,32 @@ func (dal *dal) whereDB(ctx context.Context, where any, options ...QueryOption) 
 	return db, nil
 }
 
-// DBWithCtx
-// @Description: 获取带 context 的 gorm.DB
-// @param ctx:
-// @param options:
-// @return *gorm.DB:
+// DBWithCtx embedded DB with context
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (dal *dal) DBWithCtx(ctx context.Context, options ...QueryOption) *gorm.DB {
 	return dal.DB(options...).WithContext(ctx)
 }
 
-// DB
-// @Description: 获取 gorm.DB
-// @param ctx:
-// @param options:
-// @return *gorm.DB:
+// DB embedded DB
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (dal *dal) DB(options ...QueryOption) *gorm.DB {
 	opt := MakeQueryConfig(options)
 	if dal.db == nil {
 		return &gorm.DB{Error: gorm.ErrInvalidTransaction}
 	}
 	db := dal.db
-	if opt.debug || genv.InDebugEnv() {
-		db = db.Debug()
-	}
+	db = db.Debug()
+
 	if opt.readMaster {
 		db = db.Clauses(dbresolver.Write)
 	}

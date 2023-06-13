@@ -13,10 +13,7 @@ type QueryConfig struct {
 
 type QueryOption func(v *QueryConfig)
 
-// MakeQueryConfig
-// @Description: 将 options 转化为 QueryConfig
-// @param options:
-// @return *QueryConfig:
+// MakeQueryConfig convert options to QueryConfig
 func MakeQueryConfig(options []QueryOption) *QueryConfig {
 	opt := new(QueryConfig)
 	for _, v := range options {
@@ -27,60 +24,49 @@ func MakeQueryConfig(options []QueryOption) *QueryConfig {
 	return opt
 }
 
-// WithLimit
-// @Description: 指定限制条数
-// @param limit: 限制条数
-// @return QueryOption:
+// WithLimit assign limit
 func WithLimit(limit int) QueryOption {
 	return func(v *QueryConfig) {
 		v.Limit = &limit
 	}
 }
 
-// WithOffset
-// @Description: 指定查询偏移
-// @param offset: 查询偏移
-// @return QueryOption:
+// WithOffset assign offset
 func WithOffset(offset int) QueryOption {
 	return func(v *QueryConfig) {
 		v.Offset = &offset
 	}
 }
 
-// WithOrder
-// @Description: 指定查询顺序
-// @param order: 查询顺序
-// @return QueryOption:
+// WithOrder assign order
 func WithOrder(order string) QueryOption {
 	return func(v *QueryConfig) {
 		v.Order = &order
 	}
 }
 
-// WithSelects
-// @Description: 指定查询字段
-// @param selects: 查询字段
-// @return QueryOption:
+// WithSelects assign selected columns
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func WithSelects(selects []string) QueryOption {
 	return func(v *QueryConfig) {
 		v.Selects = selects
 	}
 }
 
-// WithMaster
-// @Description: 查主库
-// @return QueryOption:
+// WithMaster read master
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func WithMaster() QueryOption {
 	return func(v *QueryConfig) {
 		v.readMaster = true
-	}
-}
-
-// WithDebug
-// @Description: Debug 模式
-// @return QueryOption:
-func WithDebug() QueryOption {
-	return func(v *QueryConfig) {
-		v.debug = true
 	}
 }

@@ -2,11 +2,12 @@ package gsql
 
 import (
 	"fmt"
-	. "github.com/bytedance/mockey"
-	. "github.com/smartystreets/goconvey/convey"
 	"reflect"
 	"sort"
 	"testing"
+
+	. "github.com/bytedance/mockey"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestParseTypeSlow(t *testing.T) {

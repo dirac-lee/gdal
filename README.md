@@ -33,10 +33,6 @@ Reference [example](./example) for details.
 ### 2.1.2 Examples of business structs
 
 ```go
-// Package model
-// @Author liming.dirac
-// @Date 2023/6/4
-// @Description:
 package model
 
 import "time"

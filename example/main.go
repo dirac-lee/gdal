@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"time"
+
 	"github.com/dirac-lee/gdal"
 	"github.com/dirac-lee/gdal/example/dal"
 	"github.com/dirac-lee/gdal/example/dal/model"
@@ -10,9 +14,6 @@ import (
 	"github.com/luci/go-render/render"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"log"
-	"os"
-	"time"
 )
 
 var (
@@ -99,7 +100,7 @@ func main() {
 		where := &model.UserWhere{
 			NameLike: gptr.Of("dirac"),
 		}
-		err := userDAL.Find(ctx, &pos, where, gdal.WithDebug())
+		err := userDAL.Find(ctx, &pos, where)
 		fmt.Println(err)
 		fmt.Println(render.Render(pos))
 	}
@@ -108,7 +109,7 @@ func main() {
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
-		pos, err := userDAL.MQuery(ctx, where, gdal.WithDebug(), gdal.WithMaster())
+		pos, err := userDAL.MQuery(ctx, where, gdal.WithMaster())
 		fmt.Println(err)
 		fmt.Println(render.Render(pos))
 	}
@@ -127,7 +128,7 @@ func main() {
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
-		pos, total, err := userDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(5), gdal.WithOrder("create_time desc"), gdal.WithDebug())
+		pos, total, err := userDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(5), gdal.WithOrder("create_time desc"))
 		fmt.Println(err)
 		fmt.Println(total)
 		fmt.Println(render.Render(pos))

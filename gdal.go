@@ -10,12 +10,86 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// GDAL
-// @Description: Generic Data Access Layer.
-// business DAL embeds *GDAL，and assign PO、Where and Update struct，then extend it。
-// @param PO     持久对象 (persistent object)
-// @param Where  查询条件对象 (query condition object)
-// @param MUpdate 更新规则对象 (update rule object)
+// GDAL Generic Data Access Layer.
+// Business DAL should embed *GDAL，and assign PO、Where and Update struct，so that you can extend
+// or override the methods as you will.
+//
+// 💡 HINT: *Where can implement interface InjectDefaulter so that we can inject the customized
+// default value into struct `where` when you query or update.
+//
+// 💡 HINT: Where can implement interface ForceIndexer, if so, we will force index when you query.
+//
+// ⚠️  WARNING: PO must implement interface Tabler and set the corresponding table name.
+//
+// ⚠️  WARNING: Fields of PO mapping to column must include tag `gorm:"column:{{column_name}}"`
+// where `{{}}` represents placeholder, so we can know which columns you need.
+//
+// 🚀 example:
+//
+//	type User struct {
+//		ID         int64      `gorm:"column:id"`
+//		Name       string     `gorm:"column:name"`
+//		Age        uint       `gorm:"column:age"`
+//		Birthday   *time.Time `gorm:"column:birthday"`
+//		CompanyID  *int       `gorm:"column:company_id"`
+//		ManagerID  *uint      `gorm:"column:manager_id"`
+//		Active     bool       `gorm:"column:active"`
+//		CreateTime time.Time  `gorm:"column:create_time"`
+//		UpdateTime time.Time  `gorm:"column:update_time"`
+//		IsDeleted  bool       `gorm:"column:is_deleted"`
+//	}
+//
+//	func (u User) TableName() string {
+//		return "user"
+//	}
+//
+//	type UserWhere struct {
+//		ID        *int64  `sql_field:"id"`
+//		Name      *string `sql_field:"name"`
+//		Age       *uint   `sql_field:"age"`
+//		CompanyID *int    `sql_field:"company_id"`
+//		ManagerID *uint   `sql_field:"manager_id"`
+//		Active    *bool   `sql_field:"active"`
+//		IsDeleted *bool   `sql_field:"is_deleted"`
+//
+//		BirthdayGE   *time.Time `sql_field:"birthday" sql_operator:">="`
+//		BirthdayLT   *time.Time `sql_field:"birthday" sql_operator:"<"`
+//		CreateTimeGE *time.Time `sql_field:"create_time" sql_operator:">="`
+//		CreateTimeLT *time.Time `sql_field:"create_time" sql_operator:"<"`
+//		UpdateTimeGE *time.Time `sql_field:"update_time" sql_operator:">="`
+//		UpdateTimeLT *time.Time `sql_field:"update_time" sql_operator:"<"`
+//
+//		CompanyIDIn []int  `sql_field:"company_id" sql_operator:"in"`
+//		ManagerIDIn []uint `sql_field:"manager_id" sql_operator:"in"`
+//	}
+//
+//	func (where UserWhere) ForceIndex() string {
+//		if where.ID != nil {
+//			return "id"
+//		}
+//		return ""
+//	}
+//
+//	func (where *UserWhere) InjectDefault() {
+//		where.IsDeleted = gptr.Of(false)
+//	}
+//
+//	type UserUpdate struct {
+//		ID         *int64     `sql_field:"id"`
+//		Name       *string    `sql_field:"name"`
+//		Age        *uint      `sql_field:"age"`
+//		Birthday   *time.Time `sql_field:"birthday"`
+//		CompanyID  *int       `sql_field:"company_id"`
+//		ManagerID  *uint      `sql_field:"manager_id"`
+//		Active     *bool      `sql_field:"active"`
+//		CreateTime *time.Time `sql_field:"create_time"`
+//		UpdateTime *time.Time `sql_field:"update_time"`
+//		IsDeleted  *bool      `sql_field:"is_deleted"`
+//	}
+//
+//	type UserDAL struct {
+//		*gdal.GDAL[model.User, model.UserWhere, model.UserUpdate]
+//	}
 type GDAL[PO schema.Tabler, Where any, Update any] struct {
 	DAL
 }
@@ -30,62 +104,120 @@ func (gdal *GDAL[PO, Where, Update]) MakePO() PO {
 	return gvalue.Zero[PO]()
 }
 
-// TableName
-// @Description: 对应表名
-// @return string:
+// TableName the corresponding table name
 func (gdal *GDAL[PO, Where, Update]) TableName() string {
 	return gdal.MakePO().TableName()
 }
 
-// Create
-// @Description: 插入单条记录
-// @param ctx:
-// @param po:
-// @return error:
+// Create insert a single record.
+//
+// 💡 HINT: the po should be a pointer so that we can inject the returning primary key.
+//
+// 💡 HINT: if you want to insert multiple records, use MCreate.
+//
+// 🚀 example:
+//
+//	user := tests.User{
+//	Name:       "Ella",
+//	Age:        17,
+//	Birthday:   gptr.Of(time.Date(1999, 1, 1, 1, 0, 0, 0, time.Local)),
+//	CompanyID:  gptr.Of(110),
+//	ManagerID:  gptr.Of[uint](210),
+//	Active:     true,
+//	CreateTime: time.Now(),
+//	UpdateTime: time.Now(),
+//	IsDeleted:  false,
+//	}
+//	UserDAL.Create(ctx, &user)
+//
+// SQL:
+// INSERT INTO `user` (`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted`)
+// VALUES ("Ella",17,"1999-01-01 01:00:00",110,210,true,"2023-06-11 09:38:14.483","2023-06-11 09:38:14.483",false) RETURNING `id`Ï
 func (gdal *GDAL[PO, Where, Update]) Create(ctx context.Context, po *PO) error {
 	return gdal.DAL.Create(ctx, po)
 }
 
-// MCreate
-// @Description: 插入多条记录
-// @param ctx:
-// @param pos: 多条记录，由于需要回写 ID，所以使用指针
-// @return int64: 成功插入个数
-// @return error:
+// MCreate insert multiple records.
+//
+// 💡 HINT: the pos should be a pointer to slice so that we can inject the returning primary keys.
+//
+// 🚀 example:
+//
+//	users := []*tests.User{
+//		GetUser("find"),
+//		GetUser("find"),
+//		GetUser("find"),
+//	}
+//
+//	_, err := UserDAL.MCreate(ctx, &users)
+//
+// SQL:
+// INSERT INTO `user` (`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted`)
+// VALUES
+// ("find",18,"2023-06-11 09:38:14",NULL,NULL,false,"2023-06-11 09:38:14.484","2023-06-11 09:38:14.484",false),
+// ("find",18,"2023-06-11 09:38:14",NULL,NULL,false,"2023-06-11 09:38:14.484","2023-06-11 09:38:14.484",false),
+// ("find",18,"2023-06-11 09:38:14",NULL,NULL,false,"2023-06-11 09:38:14.484","2023-06-11 09:38:14.484",false)
+// RETURNING `id`
 func (gdal *GDAL[PO, Where, Update]) MCreate(ctx context.Context, pos *[]*PO) (int64, error) {
 	tx := gdal.DAL.DBWithCtx(ctx).Table(gdal.TableName()).CreateInBatches(pos, 100)
 	return tx.RowsAffected, tx.Error
 }
 
 // Count
-// @Description: 根据查询条件返回记录个数
-// @param ctx:
-// @param where: 查询条件
-// @return int64: 记录个数
-// @return error:
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
+//
+//	where := &tests.UserWhere{
+//		Active:     gptr.Of(true),
+//		BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+//		BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+//	}
+//	count, err := UserDAL.Count(ctx, where)
+//
+// SQL:
+// SELECT count(*) FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= "1999-01-01 00:00:00" and `birthday` < "2019-01-01 00:00:00"
 func (gdal *GDAL[PO, Where, Update]) Count(ctx context.Context, where *Where) (int64, error) {
-	injectDefaultIfHas(where)                      // 如果配置了默认值，并且用户未指定该字段，则注入默认值
-	indexedDAL := gdal.forceIndexIfHas(ctx, where) // 如果 Where 指定了强制索引，则走强制索引
+	injectDefaultIfHas(where)                      // when field is not set in `where`,  insert customized default value  if customer has set it.
+	indexedDAL := gdal.forceIndexIfHas(ctx, where) // force index if  it is set in `where`.
 	count, err := indexedDAL.DAL.Count(ctx, gdal.MakePO(), where)
 	return int64(count), err
 }
 
-// Find
-// @Description:  条件查询
-// @param ctx:
-// @param pos: 持久(子)对象列表指针，与数据库交互的字段需要包含 `gorm:"column:列名"` tag
-// @param where: 查询条件
-// @param options: 分页规则
-// @return error:
+// Find query by condition with paging options.
+//
+// 💡 HINT: this is the most primary multiple query in GDAL, on which other multiple query methods are based.
+//
+// ⚠️  WARNING: `pos` must be a pointer to (sub-)persistent objects.
+// Fields mapping to column must include tag `gorm:"column:{{column_name}}"`
+// where `{{}}` represents placeholder, so we can know which columns you need.
+//
+// 🚀 example:
+//
+//	var users []User
+//	where := &UserWhere {
+//		Active: gptr.Of(true),
+//		BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+//		BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+//	}
+//	err := userDAL.Find(ctx, &users, where, gdal.WithLimit(10), gdal.WithOrder("birthday"))
+//
+// SQL:
+// SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted`
+// FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= '1999-01-01 00:00:00'
+// and `birthday` < '2019-01-01 00:00:00' ORDER BY birthday LIMIT 10
 func (gdal *GDAL[PO, Where, Update]) Find(ctx context.Context, pos any, where any, options ...QueryOption) error {
 	selector, err := GetSelectorFromPOs(pos) // 根据 PO gorm tag 确定 select 字段列表
 	if err != nil {
 		return err
 	}
-	injectDefaultIfHas(where)                      // 如果配置了默认值，并且用户未指定该字段，则注入默认值
-	indexedDAL := gdal.forceIndexIfHas(ctx, where) // 如果 Where 指定了强制索引，则走强制索引
+	injectDefaultIfHas(where)                      // when field is not set in `where`,  insert customized default value  if customer has set it.
+	indexedDAL := gdal.forceIndexIfHas(ctx, where) // force index if  it is set in `where`.
 
-	options = append(gslice.Of(WithSelects(selector)), options...) // 优先使用业务指定的 WithSelects
+	options = append(gslice.Of(WithSelects(selector)), options...) // as for selected columns, customer first.
 	err = indexedDAL.DAL.Find(ctx, pos, where, options...)
 	if gerror.IsErrRecordNotFound(err) {
 		return nil
@@ -93,42 +225,73 @@ func (gdal *GDAL[PO, Where, Update]) Find(ctx context.Context, pos any, where an
 	return err
 }
 
-// First
-// @Description:  条件查询单个记录
-// @param ctx:
-// @param po: 结果指针
-// @param where: 查询条件
-// @param options: 分页规则
-// @return error:
+// First query the first record by condition
+//
+// 💡 HINT: this is the most primary single query in GDAL, on which other single query methods are based.
+//
+// ⚠️  WARNING: `po` must be a pointer to a (sub-)persistent object.
+// Fields mapping to column must include tag `gorm:"column:{{column_name}}"`
+// where `{{}}` represents placeholder, so we can know which columns you need.
+//
+// 🚀 example:
+//
+//	var user User
+//	where := &UserWhere {
+//		Active: gptr.Of(true),
+//		BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+//		BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+//	}
+//	err := userDAL.First(ctx, &user, where, gdal.WithOrder("birthday"))
+//
+// SQL:
+// SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted`
+// FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= '1999-01-01 00:00:00'
+// and `birthday` < '2019-01-01 00:00:00' ORDER BY birthday LIMIT 1
 func (gdal *GDAL[PO, Where, Update]) First(ctx context.Context, po any, where any, options ...QueryOption) error {
 	selector, err := GetSelectorFromPOs(po) // 根据 PO gorm tag 确定 select 字段列表
 	if err != nil {
 		return err
 	}
-	injectDefaultIfHas(where)                                      // 如果配置了默认值，并且用户未指定该字段，则注入默认值
-	indexedDAL := gdal.forceIndexIfHas(ctx, where)                 // 如果 Where 指定了强制索引，则走强制索引
-	options = append(gslice.Of(WithSelects(selector)), options...) // 优先使用业务指定的 WithSelects
+	injectDefaultIfHas(where)                                      // when field is not set in `where`,  insert customized default value  if customer has set it.
+	indexedDAL := gdal.forceIndexIfHas(ctx, where)                 // force index if  it is set in `where`.
+	options = append(gslice.Of(WithSelects(selector)), options...) // as for selected columns, customer first.
 	return indexedDAL.DAL.First(ctx, po, where, options...)
 }
 
-// MQuery
-// @Description: 根据查询条件返回所有记录 (引用 Find)
-// @param ctx:
-// @param where: 查询条件
-// @return []*PO: 所有记录
-// @return error:
+// MQuery query by condition with paging options.
+//
+// 💡 HINT: When you just need complete persistent objects by condition, this method is what you want.
+//
+// 🚀 example:
+//
+//	where := &UserWhere {
+//		Active: gptr.Of(true),
+//		BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+//		BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+//	}
+//	users, err := userDAL.MQuery(ctx, where, gdal.WithLimit(10), gdal.WithOrder("birthday"))
+//
+// SQL:
+// SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted`
+// FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= '1999-01-01 00:00:00'
+// and `birthday` < '2019-01-01 00:00:00' ORDER BY birthday LIMIT 10
 func (gdal *GDAL[PO, Where, Update]) MQuery(ctx context.Context, where *Where, options ...QueryOption) ([]*PO, error) {
 	var pos []*PO
 	err := gdal.Find(ctx, &pos, where, options...)
 	return pos, err
 }
 
-// MQueryByIDs
-// @Description: 根据主键ID列表返回记录
-// @param ctx:
-// @param ids: 主键ID列表
-// @return []*PO:
-// @return error:
+// MQueryByIDs query by primary keys.
+//
+// 💡 HINT: When you just need complete persistent objects by primary key list, this method is what you want.
+//
+// 🚀 example:
+//
+//	users, err := userDAL.MQueryByIDs(ctx, gslice.Of(123, 456, 789), gdal.WithLimit(10), gdal.WithOrder("birthday"))
+//
+// SQL:
+// SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted`
+// FROM `user` WHERE `id` in (123, 456, 789) ORDER BY birthday LIMIT 10
 func (gdal *GDAL[PO, Where, Update]) MQueryByIDs(ctx context.Context, ids []int64, options ...QueryOption) ([]*PO, error) {
 	where := &idWhere{
 		IDIn: ids,
@@ -138,14 +301,25 @@ func (gdal *GDAL[PO, Where, Update]) MQueryByIDs(ctx context.Context, ids []int6
 	return pos, err
 }
 
-// MQueryByPagingOpt
-// @Description: query by paging options (ref: Count and Find)
-// @param ctx:
-// @param where: where condition
-// @param options: paging options
-// @return []*PO: records in current page
-// @return int64: num of total records satisfy where condition
-// @return error:
+// MQueryByPagingOpt query by paging options.
+//
+// 💡 HINT: ref Count and Find
+//
+// ⚠️  WARNING: the second return is the number of total records satisfy
+// where condition in spite of limit and offset.
+//
+// 🚀 example:
+//
+//	where := &tests.UserWhere{
+//	Active:     gptr.Of(true),
+//	BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+//	BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+//	}
+//	users, total, err := UserDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(10), gdal.WithOrder("birthday"))
+//
+// SQL:
+// SELECT count(*) FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= "1999-01-01 00:00:00" and `birthday` < "2019-01-01 00:00:00"
+// SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted` FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= "1999-01-01 00:00:00" and `birthday` < "2019-01-01 00:00:00" ORDER BY birthday LIMIT 10
 func (gdal *GDAL[PO, Where, Update]) MQueryByPagingOpt(ctx context.Context, where *Where, options ...QueryOption) ([]*PO, int64, error) {
 	count, err := gdal.Count(ctx, where)
 	if err != nil || count == 0 { // skip query when count = 0
@@ -161,30 +335,51 @@ func (gdal *GDAL[PO, Where, Update]) MQueryByPagingOpt(ctx context.Context, wher
 	return pos, count, err
 }
 
-// MQueryByPaging
-// @Description: 根据查询条件分页查询 (引用 Count 和 Find)
-// @param ctx:
-// @param where: 查询条件
-// @param limit: 页大小限制
-// @param offset: 偏移量
-// @param order: 排序规则
-// @return []*PO: 本页记录
-// @return int64: 满足查询条件的记录总数
-// @return error:
+// MQueryByPaging query by paging.
+//
+// 💡 HINT: ref Count and Find
+//
+// ⚠️  WARNING: the second return is the number of total records satisfy
+// where condition in spite of limit and offset.
+//
+// 🚀 example:
+//
+//	where := &tests.UserWhere{
+//		Active:     gptr.Of(true),
+//		BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+//		BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+//	}
+//	users, total, err := UserDAL.MQueryByPaging(ctx, where, gptr.Of(10), nil, gptr.Of("birthday"))
+//
+// SQL:
+// SELECT count(*) FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= "1999-01-01 00:00:00" and `birthday` < "2019-01-01 00:00:00"
+// SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted` FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= "1999-01-01 00:00:00" and `birthday` < "2019-01-01 00:00:00" ORDER BY birthday LIMIT 10
 func (gdal *GDAL[PO, Where, Update]) MQueryByPaging(ctx context.Context, where *Where, limit *int64, offset *int64, order *string) ([]*PO, int64, error) {
 	options := buildQueryOptions(limit, offset, order)
 	return gdal.MQueryByPagingOpt(ctx, where, options...)
 }
 
-// QueryFirst
-// @Description: 根据查询条件返回第一条记录
-// @param ctx:
-// @param where: 查询条件
-// @return *PO: 第一条记录
-// @return error:
-func (gdal *GDAL[PO, Where, Update]) QueryFirst(ctx context.Context, where *Where) (*PO, error) {
+// QueryFirst query the first record by condition.
+//
+// 💡 HINT: ref First.
+//
+// 🚀 example:
+//
+//	var user User
+//	where := &UserWhere {
+//		Active: gptr.Of(true),
+//		BirthdayGE: gptr.Of(time.Date(1999, 1, 1, 0, 0, 0, 0, time.Local)),
+//		BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
+//	}
+//	user, err := userDAL.QueryFirst(ctx, where, gdal.WithOrder("birthday"))
+//
+// SQL:
+// SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted`
+// FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= '1999-01-01 00:00:00'
+// and `birthday` < '2019-01-01 00:00:00' ORDER BY birthday LIMIT 1
+func (gdal *GDAL[PO, Where, Update]) QueryFirst(ctx context.Context, where *Where, options ...QueryOption) (*PO, error) {
 	var po PO
-	err := gdal.First(ctx, &po, where)
+	err := gdal.First(ctx, &po, where, options...)
 	if err != nil {
 		if gerror.IsErrRecordNotFound(err) {
 			return nil, nil
@@ -194,12 +389,16 @@ func (gdal *GDAL[PO, Where, Update]) QueryFirst(ctx context.Context, where *Wher
 	return &po, nil
 }
 
-// QueryByID
-// @Description: 根据主键ID返回唯一一条记录
-// @param ctx:
-// @param id: 主键ID
-// @return *PO: 唯一一条记录
-// @return error:
+// QueryByID query the record by primary key
+//
+// ⚠️  WARNING: if primary key is not exist, return nil pointer.
+//
+// 🚀 example:
+//
+//	users, err := UserDAL.QueryByID(ctx, 123)
+//
+// SQL:
+// SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted` FROM `user` WHERE `id` = 123 ORDER BY `user`.`id` LIMIT 1
 func (gdal *GDAL[PO, Where, Update]) QueryByID(ctx context.Context, id int64) (*PO, error) {
 	where := &idWhere{
 		ID: gptr.Of(id),
@@ -215,83 +414,94 @@ func (gdal *GDAL[PO, Where, Update]) QueryByID(ctx context.Context, id int64) (*
 	return &po, err
 }
 
-// MUpdate
-// @Description: 根据查询条件进行更新
-// @param ctx:
-// @param where: 查询条件
-// @param update: 更新值
-// @return int64: 被更新记录的个数
-// @return error:
+// MUpdate updates multiple records by condition
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) MUpdate(ctx context.Context, where *Where, update *Update) (int64, error) {
-	injectDefaultIfHas(where) // 如果配置了默认值，并且用户未指定该字段，则注入默认值
+	injectDefaultIfHas(where) // when field is not set in `where`,  insert customized default value  if customer has set it.
 	return gdal.DAL.Update(ctx, gdal.MakePO(), where, update)
 }
 
-// Update
-// @Description: 根据查询条件进行更新
-// @param ctx:
-// @param where: 查询条件
-// @param update: 更新值
-// @return error:
+// Update updates single records by condition
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) Update(ctx context.Context, where *Where, update *Update) error {
-	injectDefaultIfHas(where) // 如果配置了默认值，并且用户未指定该字段，则注入默认值
+	injectDefaultIfHas(where) // when field is not set in `where`,  insert customized default value  if customer has set it.
 	_, err := gdal.MUpdate(ctx, where, update)
 	return err
 }
 
-// UpdateByID
-// @Description: 根据主键ID进行更新
-// @param ctx:
-// @param id: 主键ID
-// @param update: 更新值
-// @return error:
+// UpdateByID updates single records by primary key
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) UpdateByID(ctx context.Context, id int64, update *Update) error {
 	_, err := gdal.DAL.Update(ctx, gdal.MakePO(), idWhere{ID: &id}, update)
 	return err
 }
 
-// Delete
-// @Description: ❗️物理删除，逻辑删除请业务 DAL override
-// @param ctx:
-// @param where: 查询条件
-// @return int64: 删除条数
-// @return error:
+// Delete deletes physically by condition
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) Delete(ctx context.Context, where *Where) (int64, error) {
 	return gdal.DAL.Delete(ctx, gdal.MakePO(), where)
 }
 
-// DeleteByID
-// @Description: ❗️物理删除，逻辑删除请业务 DAL override
-// @param ctx:
-// @param id: 主键ID
-// @return int64: 删除条数
-// @return error:
+// DeleteByID deletes physically by primary key
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) DeleteByID(ctx context.Context, id int64) (int64, error) {
 	return gdal.DAL.Delete(ctx, gdal.MakePO(), idWhere{ID: &id})
 }
 
-// WithTx
-// @Description: 生成事务 DAL，使用同一 tx 构造的事务 DAL 引用同一 tx，所以能够支持事务
-// @param tx: 事务 db 对象
-// @return *GDAL: 事务 DAL
+// WithTx generate a new GDAL with tx embedded
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) WithTx(tx *gorm.DB) *GDAL[PO, Where, Update] {
 	return NewGDAL[PO, Where, Update](tx)
 }
 
-// DBWithCtx
-// @Description: 返回当前 DAL 引用的 db 对象，以支持使用原生 gorm 生成更复杂的 sql
-// @param ctx: 自动 WithCtx
-// @param options: db 配置，如配置主键、本地缓存、读主库等
-// @return *gorm.db: 当前 DAL 引用的 db 对象
+// DBWithCtx get embedded DB with context
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) DBWithCtx(ctx context.Context, options ...QueryOption) *gorm.DB {
 	return gdal.DAL.DBWithCtx(ctx, options...)
 }
 
-// DB
-// @Description: 返回当前 DAL 引用的 db 对象，以支持使用原生 gorm 生成更复杂的 sql
-// @param ctx: 自动 WithCtx
-// @param options: db 配置，如配置主键、本地缓存、读主库等
-// @return *gorm.db: 当前 DAL 引用的 db 对象
+// DB get embedded DB
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) DB(options ...QueryOption) *gorm.DB {
 	return gdal.DAL.DB(options...)
 }

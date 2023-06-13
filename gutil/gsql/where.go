@@ -3,29 +3,24 @@ package gsql
 import (
 	"errors"
 	"fmt"
-	"github.com/dirac-lee/gdal/gutil/greflect"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/dirac-lee/gdal/gutil/greflect"
 )
 
-type FieldExpr string // sql: field_1 > field_2, name field_2 需要使用 FieldExpr 类型
+type FieldExpr string // sql: field_1 > field_2, name field_2 need use FieldExpr type
 
-// BuildSQLWhere
+// BuildSQLWhere build Where model struct into query & args in SQL
 //
-// @Description: 将 Where model struct 编译为 sql 语句中 query 和 args
+// 💡 HINT:
 //
-// @param where: Where model
+// ⚠️  WARNING:
 //
-// @return query:
+// 🚀 example:
 //
-// @return args:
-//
-// @return err:
-//
-// @example
-//
-//	// model 表
+//	// model table
 //	type TableAbc struct {
 //		ID   int64  `gorm:"column:id"`
 //		Name string `gorm:"column:name"`
@@ -36,7 +31,7 @@ type FieldExpr string // sql: field_1 > field_2, name field_2 需要使用 Field
 //		return "table_abc"
 //	}
 //
-//	// 需要更新的字段
+//	// fields to be updated
 //	type TableAbcWhere struct {
 //		Name *string `sql_field:"name" sql_operator:"like"`
 //		Age  *int    `sql_field:"p_age"`
@@ -55,7 +50,7 @@ type FieldExpr string // sql: field_1 > field_2, name field_2 需要使用 Field
 //			// handle error
 //		}
 //
-//		// 下面即 sql： update table_abc set name="byte-er" where id = 1
+//		// SQL： update table_abc set name="byte-er" where id = 1
 //		if err := db.Find(&pos).Where(query, args...).Error; err != nil {
 //			logs.Error("fins table abc failed: %s", err)
 //		}
@@ -87,13 +82,13 @@ func buildSQLWhere(rv reflect.Value, rt reflect.Type) (query string, args []any,
 			continue
 		}
 
-		// 用 or 联结 clauses 序列
+		// connect clauses below by `or`
 		orSuffix, orArgs, err := buildSQLWhereWithOrOptions(orClause)
 		if err != nil {
 			return "", nil, err
 		}
 
-		if len(orSuffix) > 0 { // or 连接的条件如果存在的话使用 () 包裹
+		if len(orSuffix) > 0 { // use ( ) to embrace the conditions connected with `or` if exists
 			queries = append(queries, fmt.Sprintf("(%v)", orSuffix))
 		}
 		args = append(args, orArgs...)
@@ -177,10 +172,15 @@ func buildSQLWhereWithAndOption(rv reflect.Value, rt reflect.Type) (query string
 	return query, args, nil
 }
 
-// 遍历 field，使用 and 拼接 where 语句
-
-// fillSQLUpdateFieldMap walk through all the fields in `rv`, parsed to single where conditions, then join them with `AND`.
+// fillSQLWhereCondition walk through all the fields in `rv`, parsed to single where conditions, then join them with `AND`.
+//
+// 💡 HINT:
+//
 // ⚠️  WARNING: empty slice []T{} is treated as zero value.
+//
+// 🚀 example:
+//
+//
 func fillSQLWhereCondition(rv reflect.Value, rt reflect.Type) (query string, args []any, err error) {
 	args = []any{}
 	qq := new(strings.Builder)
