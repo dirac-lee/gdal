@@ -294,7 +294,7 @@ func (gdal *GDAL[PO, Where, Update]) MQuery(ctx context.Context, where *Where, o
 // FROM `user` WHERE `id` in (123, 456, 789) ORDER BY birthday LIMIT 10
 func (gdal *GDAL[PO, Where, Update]) MQueryByIDs(ctx context.Context, ids []int64, options ...QueryOption) ([]*PO, error) {
 	where := &idWhere{
-		IDIn: ids,
+		IDIn: &ids,
 	}
 	var pos []*PO
 	err := gdal.Find(ctx, &pos, where, options...)
@@ -521,6 +521,6 @@ func buildQueryOptions(limit *int64, offset *int64, order *string) []QueryOption
 }
 
 type idWhere struct {
-	ID   *int64  `sql_field:"id" sql_operator:"="`
-	IDIn []int64 `sql_field:"id" sql_operator:"in"`
+	ID   *int64   `sql_field:"id" sql_operator:"="`
+	IDIn *[]int64 `sql_field:"id" sql_operator:"in"`
 }
