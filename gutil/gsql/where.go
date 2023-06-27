@@ -5,134 +5,57 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
 
 	"github.com/dirac-lee/gdal/gutil/greflect"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-type FieldExpr string // sql: field_1 > field_2, name field_2 need use FieldExpr type
-
-// BuildSQLWhere build Where model struct into query & args in SQL
-//
-// 💡 HINT:
-//
-// ⚠️  WARNING:
-//
-// 🚀 example:
-//
-//	// model table
-//	type TableAbc struct {
-//		ID   int64  `gorm:"column:id"`
-//		Name string `gorm:"column:name"`
-//		Age  int    `gorm:"column:p_age"`
-//	}
-//
-//	func (TableAbc) TableName() string {
-//		return "table_abc"
-//	}
-//
-//	// fields to be updated
-//	type TableAbcWhere struct {
-//		Name *string `sql_field:"name" sql_operator:"like"`
-//		Age  *int    `sql_field:"p_age"`
-//	}
-//
-//	func example() {
-//		var name = "name%"
-//		var age = 20
-//		attrs := TableAbcWhere{
-//			Name: &name,
-//			Age:  &age,
-//		}
-//
-//		query, args, err := BuildSQLWhere(attrs)
-//		if err != nil {
-//			// handle error
-//		}
-//
-//		// SQL： update table_abc set name="byte-er" where id = 1
-//		if err := db.Find(&pos).Where(query, args...).Error; err != nil {
-//			logs.Error("fins table abc failed: %s", err)
-//		}
-//	}
-func BuildSQLWhere(where any) (query string, args []any, err error) {
+func BuildSQLWhereV2(where any) (clause.Where, error) {
 	rv, rt, err := greflect.GetElemValueTypeOfPtr(reflect.ValueOf(where))
 	if err != nil {
-		return "", nil, err
+		return clause.Where{}, err
 	}
-	return buildSQLWhere(rv, rt)
+	return buildSQLWhereV2(rv, rt)
 }
 
-func buildSQLWhere(rv reflect.Value, rt reflect.Type) (query string, args []any, err error) {
-	andPrefix, andArgs, err := buildSQLWhereWithAndOption(rv, rt)
+func buildSQLWhereV2(rv reflect.Value, rt reflect.Type) (clause.Where, error) {
+	var exprs []clause.Expression
+	firstExprs, err := buildSQLAndExprsV2(rv, rt)
 	if err != nil {
-		return "", nil, err
-	}
-
-	// 使用 and 拼接 queries 条件
-	var queries []string
-	if len(andPrefix) > 0 {
-		queries = append(queries, andPrefix)
-		args = append(args, andArgs...)
+		return clause.Where{}, err
 	}
 
 	orClauseList := getOrClauseList(rv, rt)
-	for _, orClause := range orClauseList {
+	if len(orClauseList) == 0 {
+		return clause.Where{Exprs: firstExprs}, nil
+	}
+	if len(firstExprs) > 0 {
+		exprs = append(exprs, clause.And(firstExprs...))
+	}
+	for _, orClause := range orClauseList { // multiple fields with tag $or
 		if !orClause.IsValid() {
 			continue
 		}
-
-		// connect clauses below by `or`
-		orSuffix, orArgs, err := buildSQLWhereWithOrOptions(orClause)
+		orExprs, err := buildSQLOrExprsV2(orClause)
 		if err != nil {
-			return "", nil, err
+			return clause.Where{}, err
 		}
-
-		if len(orSuffix) > 0 { // use ( ) to embrace the conditions connected with `or` if exists
-			queries = append(queries, fmt.Sprintf("(%v)", orSuffix))
+		if len(orExprs) > 0 {
+			orClauseExpr := clause.Or(orExprs...) // use OR to combine elem of slice field with tag $or
+			exprs = append(exprs, orClauseExpr)   // use AND to combine fields with tag $or
 		}
-		args = append(args, orArgs...)
 	}
-
-	query = strings.Join(queries, " and ")
-
-	return query, args, err
+	return clause.Where{Exprs: exprs}, nil
 }
 
-var orCache sync.Map
-
-func getOrClauseList(rv reflect.Value, rt reflect.Type) (orClauses []reflect.Value) {
-	var orIndices []int
-	value, cached := orCache.Load(rt)
-	if cached {
-		orIndices = value.([]int)
-		for _, index := range orIndices {
-			fieldValue := rv.Field(index)
-			orClauses = append(orClauses, fieldValue)
-		}
-		return orClauses
+func buildSQLOrExprsV2(rv reflect.Value) ([]clause.Expression, error) {
+	if rv.Kind() != reflect.Array && rv.Kind() != reflect.Slice { // 每个 $or 都必须是 slice
+		return nil, errors.New("or clauses must be slice or array")
 	}
 
-	for i := 0; i < rt.NumField(); i++ {
-		fieldValue := rv.Field(i)
-		structField := rt.Field(i)
-		sqlExpr := strings.TrimSpace(structField.Tag.Get("sql_expr"))
-		if sqlExpr == "$or" {
-			orIndices = append(orIndices, i)
-			orClauses = append(orClauses, fieldValue)
-		}
-	}
-	orCache.Store(rt, orIndices)
-	return orClauses
-}
-
-func buildSQLWhereWithOrOptions(rv reflect.Value) (query string, args []any, err error) {
-	if rv.Kind() != reflect.Array && rv.Kind() != reflect.Slice {
-		return "", nil, errors.New("or clauses must be slice or array")
-	}
-
-	subQueries := make([]string, 0, rv.Len())
-	for i := 0; i < rv.Len(); i++ { // 遍历 orOpts 数组
+	exprs := make([]clause.Expression, 0, rv.Len())
+	for i := 0; i < rv.Len(); i++ { // range slice field with tag $or
 		erv := rv.Index(i)
 		if !erv.IsValid() {
 			continue
@@ -144,226 +67,161 @@ func buildSQLWhereWithOrOptions(rv reflect.Value) (query string, args []any, err
 			continue
 		}
 		ert := erv.Type()
-		subQuery, subArgs, err := buildSQLWhere(erv, ert) // 支持嵌套
+		subWhere, err := buildSQLWhereV2(erv, ert) // embedding
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
-		if len(subQuery) == 0 {
+		if len(subWhere.Exprs) == 0 {
 			continue
 		}
-		if len(subArgs) > 1 {
-			subQuery = fmt.Sprintf("(%v)", subQuery)
-		}
-		subQueries = append(subQueries, subQuery)
-		args = append(args, subArgs...)
+		exprs = append(exprs, clause.And(subWhere.Exprs...))
 	}
 
-	query = strings.Join(subQueries, " or ")
-
-	return query, args, err
+	return exprs, nil
 }
 
-func buildSQLWhereWithAndOption(rv reflect.Value, rt reflect.Type) (query string, args []any, err error) {
-	// 遍历 field，将非 nil 的值拼到 map 中
-	query, args, err = fillSQLWhereCondition(rv, rt)
-	if err != nil {
-		return "", nil, err
-	}
-	return query, args, nil
-}
-
-// fillSQLWhereCondition walk through all the fields in `rv`, parsed to single where conditions, then join them with `AND`.
-//
-// 💡 HINT:
-//
-// ⚠️  WARNING: empty slice []T{} is treated as zero value.
-//
-// 🚀 example:
-//
-//
-func fillSQLWhereCondition(rv reflect.Value, rt reflect.Type) (query string, args []any, err error) {
-	args = []any{}
-	qq := new(strings.Builder)
-	isFirst := true
+func buildSQLAndExprsV2(rv reflect.Value, rt reflect.Type) ([]clause.Expression, error) {
+	var exprs []clause.Expression
 
 	sqlType, err := parseType(rt)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	for _, name := range sqlType.Names {
-		column := sqlType.ColumnsMap[name] // 前置步骤检查过，一定存在
-		data := rv.FieldByName(column.Name)
-		// 字段的值是 nil 直接忽略 不做处理
-		if data.Kind() == reflect.Ptr && data.IsNil() {
+		column := sqlType.ColumnsMap[name]
+		field := rv.FieldByName(column.Name)
+		if field.Kind() == reflect.Ptr && field.IsNil() {
 			continue
 		}
-		// slice 长度为 0 也直接忽略 不做处理
-		if data.Kind() == reflect.Slice && (data.IsNil() || data.Len() == 0) {
+		if field.Kind() == reflect.Slice && (field.IsNil() || field.Len() == 0) {
 			continue
 		}
-		if data.Kind() == reflect.Ptr {
-			data = data.Elem()
+		if field.Kind() == reflect.Ptr {
+			field = field.Elem()
 		}
-		inter := data.Interface()
-		op, err := GetOperatorMap(column.Operator, inter)
+		data := field.Interface()
+
+		builder, err := GetWhereExpr(column.Operator)
 		if err != nil {
-			return "", nil, err
+			return nil, err
 		}
-		operator, placeholder, arg := op(inter)
-		if isFirst {
-			isFirst = false
-		} else {
-			qq.WriteString(" and ")
-		}
-
-		// 支持跨表查询时，表中有相同字段的情况, example: `sql_field:"others.id"`
-		// 如果 sqlField 中存在 '.', 则 split by '.', 并在字段前后加上 '`', 重新用 '.' 拼接起来
 		sqlField := strings.Replace(column.Field, ".", "`.`", 1)
-
-		var fieldExpr string
-		if arg != nil {
-			switch d := arg.(type) {
-			case FieldExpr:
-				fieldExpr = string(d)
-			case *FieldExpr:
-				if d != nil {
-					fieldExpr = string(*d)
-				}
-			}
+		expr, err := builder(sqlField, data)
+		if err != nil {
+			return nil, err
 		}
-
-		qq.WriteString("`")
-		qq.WriteString(sqlField)
-		qq.WriteString("` ")
-		qq.WriteString(operator)
-		qq.WriteString(" ")
-		if fieldExpr != "" {
-			qq.WriteString("`")
-			qq.WriteString(fieldExpr)
-			qq.WriteString("`")
-		} else {
-			qq.WriteString(placeholder)
-			if arg != nil {
-				args = append(args, arg)
-			}
-		}
+		exprs = append(exprs, expr)
 	}
 
-	return qq.String(), args, nil
+	return exprs, nil
 }
 
-type (
-	Operator       func(data any) (operator string, placeholder string, arg any)
-	OperatorFilter func(data any) bool
-)
-
-var operatorMap = map[string]struct {
-	Operator       Operator
-	OperatorFilter OperatorFilter
-}{
-	"<": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "<", "?", data
-		},
-	},
-	"<=": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "<=", "?", data
-		},
-	},
-	"=": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "=", "?", data
-		},
-	},
-	"": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "=", "?", data
-		},
-	},
-	"!=": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "!=", "?", data
-		},
-	},
-	">": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return ">", "?", data
-		},
-	},
-	">=": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return ">=", "?", data
-		},
-	},
-	"null": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			switch v := data.(type) {
-			case bool:
-				if v {
-					return "is null", "", nil
-				} else {
-					return "is not null", "", nil
-				}
-			}
-			return "null", "", data
-		},
-	},
-	"in": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "in", "(?)", data
-		},
-	},
-	"not in": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "not in", "(?)", data
-		},
-	},
-	"full like": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "like", "?", "%" + data.(string) + "%"
-		},
-		OperatorFilter: isStringEmpty,
-	},
-	"left like": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "like", "?", "%" + data.(string)
-		},
-		OperatorFilter: isStringEmpty,
-	},
-	"right like": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "like", "?", data.(string) + "%"
-		},
-		OperatorFilter: isStringEmpty,
-	},
-	"like": {
-		Operator: func(data any) (operator string, placeholder string, arg any) {
-			return "like", "?", data.(string)
-		},
-		OperatorFilter: isStringEmpty,
-	},
-}
-
-func isStringEmpty(data any) bool {
-	switch r := data.(type) {
-	case string:
-		return r != ""
-	}
-	return true
-}
-
-func GetOperatorMap(operatorKey string, data any) (Operator, error) {
-	operator, ok := operatorMap[operatorKey]
+func GetWhereExpr(operator string) (SQLWhereExprBuilder, error) {
+	expr, ok := whereMap[operator]
 	if !ok {
-		return nil, fmt.Errorf("operator %q not found", operatorKey)
+		return nil, fmt.Errorf("unsupported operator %s", operator)
 	}
-	if operator.OperatorFilter == nil {
-		return operator.Operator, nil
+	return expr, nil
+}
+
+// SQLWhereExprBuilder where SQL generator
+type SQLWhereExprBuilder func(column string, data any) (clause.Expression, error)
+
+var whereMap = map[string]SQLWhereExprBuilder{
+	"<": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` < ?", column)
+		return gorm.Expr(expr, data), nil
+	},
+	"<=": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` <= ?", column)
+		return gorm.Expr(expr, data), nil
+	},
+	"=": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` = ?", column)
+		return gorm.Expr(expr, data), nil
+	},
+	"": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` = ?", column)
+		return gorm.Expr(expr, data), nil
+	},
+	"!=": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` != ?", column)
+		return gorm.Expr(expr, data), nil
+	},
+	">": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` > ?", column)
+		return gorm.Expr(expr, data), nil
+	},
+	">=": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` >= ?", column)
+		return gorm.Expr(expr, data), nil
+	},
+	"null": func(column string, data any) (clause.Expression, error) {
+		v, isBool := data.(bool)
+		if !isBool {
+			return clause.Expr{}, errors.New("field with tag `null` must be bool")
+		}
+		var not string
+		if !v {
+			not = "NOT "
+		}
+		expr := fmt.Sprintf("`%v` IS %vNULL", column, not)
+		return gorm.Expr(expr), nil
+	},
+	"in": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` IN (?)", column)
+		return gorm.Expr(expr, data), nil
+	},
+	"not in": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` NOT IN (?)", column)
+		return gorm.Expr(expr, data), nil
+	},
+	"full like": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` LIKE ?", column)
+		return gorm.Expr(expr, "%"+data.(string)+"%"), nil
+	},
+	"left like": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` LIKE ?", column)
+		return gorm.Expr(expr, "%"+data.(string)), nil
+	},
+	"right like": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` LIKE ?", column)
+		return gorm.Expr(expr, data.(string)+"%"), nil
+	},
+	"like": func(column string, data any) (clause.Expression, error) {
+		expr := fmt.Sprintf("`%v` LIKE ?", column)
+		return gorm.Expr(expr, data.(string)), nil
+	},
+	"json_contains": func(column string, data any) (clause.Expression, error) {
+		return JSONContains(column, data), nil
+	},
+	"json_contains any": func(column string, data any) (clause.Expression, error) {
+		exprs, err := JSONContainsExprs(column, data)
+		return clause.Or(exprs...), err
+	},
+	"json_contains all": func(column string, data any) (clause.Expression, error) {
+		exprs, err := JSONContainsExprs(column, data)
+		return clause.And(exprs...), err
+	},
+}
+
+func JSONContains(column string, data any) clause.Expression {
+	expr := fmt.Sprintf("JSON_CONTAINS(%s, ?)", column)
+	return gorm.Expr(expr, data)
+}
+
+func JSONContainsExprs(column string, data any) ([]clause.Expression, error) {
+	rv := reflect.ValueOf(data)
+	rt := rv.Type()
+	if rt.Kind() != reflect.Slice && rt.Kind() != reflect.Array {
+		return nil, errors.New("field with tag `json_contains any` must be slice or array")
 	}
-	if operator.OperatorFilter(data) {
-		return operator.Operator, nil
+	var exprs []clause.Expression
+	for i := 0; i < rv.Len(); i++ {
+		elem := rv.Index(i)
+		expr := JSONContains(column, elem.Interface())
+		exprs = append(exprs, expr)
 	}
-	return nil, fmt.Errorf("operator %q not found", operatorKey)
+	return exprs, nil
 }

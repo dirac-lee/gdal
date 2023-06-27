@@ -2,8 +2,6 @@ package tests
 
 import (
 	"time"
-
-	"github.com/dirac-lee/gdal/gutil/gptr"
 )
 
 type User struct {
@@ -50,9 +48,10 @@ func (where UserWhere) ForceIndex() string {
 	return ""
 }
 
-func (where *UserWhere) InjectDefault() {
-	where.IsDeleted = gptr.Of(false)
-}
+//
+//func (where *UserWhere) InjectDefault() {
+//	where.IsDeleted = gptr.Of(false)
+//}
 
 type UserUpdate struct {
 	ID         *int64     `sql_field:"id"`
