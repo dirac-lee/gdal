@@ -1,13 +1,11 @@
 package gsql
 
 import (
-	"encoding/json"
 	"fmt"
-	"reflect"
-
 	"github.com/dirac-lee/gdal/gutil/greflect"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"reflect"
 )
 
 // BuildSQLUpdate build Update struct into sql update map
@@ -74,8 +72,6 @@ func BuildSQLUpdate(update any) (map[string]any, error) {
 // ⚠️  WARNING: empty slice []T{} is treated as zero value.
 //
 // 🚀 example:
-//
-//
 func fillSQLUpdateFieldMap(rv reflect.Value, st *sqlType) (map[string]any, error) {
 	m := make(map[string]any)
 	for _, name := range st.Names {
@@ -103,94 +99,59 @@ func fillSQLUpdateFieldMap(rv reflect.Value, st *sqlType) (map[string]any, error
 }
 
 // SQLUpdater update SQL generator
-type SQLUpdater func(field string, data any) clause.Expr
+type SQLUpdater func(column string, data any) clause.Expr
 
 // updaterMap support `+`, `-` and `merge_json` so far
 var updaterMap = map[string]SQLUpdater{
-	"+": func(field string, data any) clause.Expr {
-		return gorm.Expr(field+" + ?", data)
+	"+": func(column string, data any) clause.Expr {
+		return gorm.Expr(column+" + ?", data)
 	},
-	"-": func(field string, data any) clause.Expr {
-		return gorm.Expr(field+" - ?", data)
+	"-": func(column string, data any) clause.Expr {
+		return gorm.Expr(column+" - ?", data)
 	},
-	"merge_json": func(field string, data any) clause.Expr {
-		var bs []byte
-		if isMergeJSONStruct(data) {
-			dataMap, _ := mergeJSONStructToJSONMap(data)
-			bs, _ = json.Marshal(dataMap)
-		} else {
-			bs, _ = json.Marshal(data)
-		}
-		s := string(bs)
-		if s == "" {
-			return clause.Expr{}
-		}
-		return gorm.Expr("CASE WHEN (`"+field+"` IS NULL OR `"+field+"` = '') THEN CAST(? AS JSON) ELSE JSON_MERGE_PATCH(`"+field+"`, CAST(? AS JSON)) END", s, s)
+	"json_set": func(column string, data any) clause.Expr {
+		return JSONSetExpr(column, data)
 	},
 }
 
-// isMergeJSONStruct whether `v` can be a struct or a pointer to struct
-//
-// 💡 HINT:
-//
-// ⚠️  WARNING:
-//
-// 🚀 example:
-//
-//
-func isMergeJSONStruct(v any) bool {
-	vt := reflect.TypeOf(v)
-	if vt.Kind() == reflect.Ptr {
-		vt = vt.Elem()
-	}
-	return vt.Kind() == reflect.Struct
-}
+func JSONSetExpr(column string, data any) clause.Expr {
+	reflectValue := reflect.ValueOf(data)
+	reflectType := reflectValue.Type()
+	sqlKey := make([]string, 0)
+	sqlVal := make([]interface{}, 0)
+	for i := 0; i < reflectType.NumField(); i++ {
+		field := reflectType.Field(i)
+		value := reflectValue.Field(i)
 
-// mergeJSONStructToJSONMap convert struct to map by tag `json`
-//
-// 💡 HINT:
-//
-// ⚠️  WARNING:
-//
-// 🚀 example:
-//
-//
-func mergeJSONStructToJSONMap(v any) (map[string]any, error) {
-	vt := reflect.TypeOf(v)
-	vv := reflect.ValueOf(v)
-
-	if vt.Kind() == reflect.Ptr {
-		vt = vt.Elem()
-		vv = vv.Elem()
-	}
-	if vt.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("update(JSON_MERGE_PATCH) need struct type")
-	}
-
-	m := map[string]any{}
-	for i := 0; i < vt.NumField(); i++ {
-		vtField := vt.Field(i)
-		vvField := vv.Field(i)
-
-		if !vvField.IsValid() {
+		if value.Kind() == reflect.Ptr && value.IsNil() {
 			continue
 		}
-
-		jsonField := vtField.Tag.Get("json")
-		if jsonField == "" {
+		if value.Kind() == reflect.Slice && (value.IsNil() || value.Len() == 0) {
 			continue
 		}
+		if value.Kind() == reflect.Ptr {
+			value = value.Elem()
+		}
+		sqlVal = append(sqlVal, value.Interface())
 
-		// ptr
-		if vtField.Type.Kind() == reflect.Ptr {
-			if vvField.IsNil() {
-				continue
-			}
-			m[jsonField] = vvField.Elem().Interface()
+		// get json tag as sql key if exists, otherwise, use field name
+		jsonTag := field.Tag.Get("json")
+		if len(jsonTag) > 0 {
+			sqlKey = append(sqlKey, jsonTag)
 		} else {
-			m[jsonField] = vvField.Interface()
+			sqlKey = append(sqlKey, field.Name)
 		}
 	}
 
-	return m, nil
+	if len(sqlVal) <= 0 {
+		return clause.Expr{}
+	}
+	var sqlStr string
+	for _, key := range sqlKey {
+		sqlStr += fmt.Sprintf(", '$.%s', ?", key)
+	}
+	return clause.Expr{
+		SQL:  fmt.Sprintf("JSON_SET(`%s` %s)", column, sqlStr),
+		Vars: sqlVal,
+	}
 }

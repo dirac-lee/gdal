@@ -1,13 +1,15 @@
 package gsql
 
 import (
+	"github.com/dirac-lee/gdal/gutil/gslice"
+	"strings"
+	"sync"
+	"testing"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
 	"gorm.io/gorm/utils/tests"
-	"strings"
-	"sync"
-	"testing"
 
 	"github.com/dirac-lee/gdal/gutil/gptr"
 
@@ -15,18 +17,18 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestBuildSQLWhereV2(t *testing.T) {
+func TestBuildSQLWhere(t *testing.T) {
 
 	PatchConvey(t.Name(), t, func() {
-		testBuildSQLWhere := func(opt interface{}, check func(clause.Where, error)) {
-			check(BuildSQLWhereV2(opt))
+		testBuildSQLWhere := func(opt any, check func(clause.Expression, error)) {
+			check(BuildSQLWhereExpr(opt))
 		}
 
 		PatchConvey("invalid sql_operator", func() {
 			// sql_operator 非法
 			testBuildSQLWhere(struct {
 				Name *string `sql_field:"name" sql_operator:"invalid"`
-			}{}, func(where clause.Where, err error) {
+			}{}, func(where clause.Expression, err error) {
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldContainSubstring, `field(Name) operator(invalid) invalid`)
 			})
@@ -35,10 +37,10 @@ func TestBuildSQLWhereV2(t *testing.T) {
 		PatchConvey("nil field passed", func() {
 			testBuildSQLWhere(struct {
 				Name *string `sql_field:"name"`
-			}{}, func(where clause.Where, err error) {
+			}{}, func(where clause.Expression, err error) {
 				So(err, ShouldBeNil)
 				query, args := buildClauses(where)
-				So(query, ShouldEqual, "SELECT * FROM `users` WHERE")
+				So(query, ShouldEqual, "SELECT * FROM `users`")
 				So(args, ShouldHaveLength, 0)
 			})
 		})
@@ -50,7 +52,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 				Age  *int    `sql_field:"age"`
 			}{
 				Name: &name,
-			}, func(where clause.Where, err error) {
+			}, func(where clause.Expression, err error) {
 				So(err, ShouldBeNil)
 				query, args := buildClauses(where)
 				So(query, ShouldEqual, "SELECT * FROM `users` WHERE `name` = ?")
@@ -69,10 +71,10 @@ func TestBuildSQLWhereV2(t *testing.T) {
 			}{
 				Name: &name,
 				Age:  &age,
-			}, func(where clause.Where, err error) {
+			}, func(where clause.Expression, err error) {
 				So(err, ShouldBeNil)
 				query, args := buildClauses(where)
-				So(query, ShouldEqual, "SELECT * FROM `users` WHERE `name_jjj` = ? AND `age_hhh` = ?")
+				So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`name_jjj` = ? AND `age_hhh` = ?)")
 				So(args, ShouldHaveLength, 2)
 				So(args[0], ShouldEqual, "chen")
 				So(args[1], ShouldEqual, 20)
@@ -93,10 +95,10 @@ func TestBuildSQLWhereV2(t *testing.T) {
 				}{
 					IDs:   &ids,
 					Names: &names,
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` IN (?,?,?) AND `name` NOT IN (?,?)")
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`id` IN (?,?,?) AND `name` NOT IN (?,?))")
 					So(args, ShouldHaveLength, 5)
 					wantArgs := []any{int64(1), int64(2), int64(3), "a", "b"}
 					So(args, ShouldResemble, wantArgs)
@@ -110,10 +112,10 @@ func TestBuildSQLWhereV2(t *testing.T) {
 				}{
 					IDs:   &idsEmpty,
 					Names: &namesEmpty,
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` IN (?) AND `name` NOT IN (?)")
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`id` IN (?) AND `name` NOT IN (?))")
 					So(args, ShouldHaveLength, 2)
 					So(args[0], ShouldResemble, nil)
 					So(args[1], ShouldResemble, nil)
@@ -128,10 +130,10 @@ func TestBuildSQLWhereV2(t *testing.T) {
 				}{
 					IDs:   ids,
 					Names: names,
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` IN (?,?,?) AND `name` NOT IN (?,?)")
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`id` IN (?,?,?) AND `name` NOT IN (?,?))")
 					wantArgs := []any{int64(1), int64(2), int64(3), "a", "b"}
 					So(args, ShouldResemble, wantArgs)
 				})
@@ -142,10 +144,10 @@ func TestBuildSQLWhereV2(t *testing.T) {
 				testBuildSQLWhere(struct {
 					IDs   []int64  `sql_field:"id" sql_operator:"in"`
 					Names []string `sql_field:"name" sql_operator:"not in"`
-				}{}, func(where clause.Where, err error) {
+				}{}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE")
+					So(query, ShouldEqual, "SELECT * FROM `users`")
 					So(args, ShouldHaveLength, 0)
 				})
 			})
@@ -157,10 +159,10 @@ func TestBuildSQLWhereV2(t *testing.T) {
 				}{
 					IDs:   []int64{},
 					Names: []string{},
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE")
+					So(query, ShouldEqual, "SELECT * FROM `users`")
 					So(args, ShouldHaveLength, 0)
 				})
 			})
@@ -170,7 +172,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					IDs []int64 `sql_field:"id" sql_operator:"="`
 				}{
 					IDs: ids,
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					ShouldNotBeNil(err)
 				})
 			})
@@ -181,7 +183,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					NameLike *string `sql_field:"name" sql_operator:"full like"`
 				}{
 					NameLike: &name,
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					query, args := buildClauses(where)
 					So(err, ShouldBeNil)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `name` LIKE ?")
@@ -197,7 +199,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *bool  `sql_field:"name" sql_operator:"null"`
 				}{
 					ID: gptr.Of[int64](1),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` > ?")
@@ -212,7 +214,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *bool  `sql_field:"name" sql_operator:"null"`
 				}{
 					ID: gptr.Of[int64](1),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` >= ?")
@@ -227,7 +229,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *bool  `sql_field:"name" sql_operator:"null"`
 				}{
 					ID: gptr.Of[int64](1),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` = ?")
@@ -242,7 +244,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *bool  `sql_field:"name" sql_operator:"null"`
 				}{
 					ID: gptr.Of[int64](1),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` < ?")
@@ -257,7 +259,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *bool  `sql_field:"name" sql_operator:"null"`
 				}{
 					ID: gptr.Of[int64](1),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` <= ?")
@@ -272,10 +274,25 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *bool  `sql_field:"name" sql_operator:"null"`
 				}{
 					ID: gptr.Of[int64](1),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` != ?")
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` <> ?")
+					So(args, ShouldHaveLength, 1)
+					So(args[0], ShouldEqual, 1)
+				})
+			})
+
+			PatchConvey("<>", func() {
+				testBuildSQLWhere(struct {
+					ID   *int64 `sql_field:"id" sql_operator:"<>"`
+					Name *bool  `sql_field:"name" sql_operator:"null"`
+				}{
+					ID: gptr.Of[int64](1),
+				}, func(where clause.Expression, err error) {
+					So(err, ShouldBeNil)
+					query, args := buildClauses(where)
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `id` <> ?")
 					So(args, ShouldHaveLength, 1)
 					So(args[0], ShouldEqual, 1)
 				})
@@ -288,10 +305,10 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *bool `sql_field:"name" sql_operator:"null"`
 				}{
 					Name: nil,
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE")
+					So(query, ShouldEqual, "SELECT * FROM `users`")
 					So(args, ShouldHaveLength, 0)
 				})
 			})
@@ -301,7 +318,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *bool `sql_field:"name" sql_operator:"null"`
 				}{
 					Name: gptr.Of(true),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `name` IS NULL")
@@ -314,7 +331,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *bool `sql_field:"name" sql_operator:"null"`
 				}{
 					Name: gptr.Of(false),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `name` IS NOT NULL")
@@ -329,7 +346,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *string `sql_field:"name" sql_operator:"like"`
 				}{
 					Name: gptr.Of("x"),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `name` LIKE ?")
@@ -343,7 +360,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *string `sql_field:"name" sql_operator:"left like"`
 				}{
 					Name: gptr.Of("x"),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `name` LIKE ?")
@@ -357,7 +374,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *string `sql_field:"name" sql_operator:"right like"`
 				}{
 					Name: gptr.Of("x"),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `name` LIKE ?")
@@ -371,7 +388,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 					Name *string `sql_field:"name" sql_operator:"full like"`
 				}{
 					Name: gptr.Of("x"),
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
 					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `name` LIKE ?")
@@ -386,7 +403,7 @@ func TestBuildSQLWhereV2(t *testing.T) {
 				Name *string `sql_field:"name" sql_operator:"invalid"`
 			}{
 				Name: gptr.Of("x"),
-			}, func(where clause.Where, err error) {
+			}, func(where clause.Expression, err error) {
 				So(err, ShouldNotBeNil)
 				So(err.Error(), ShouldEqual, "field(Name) operator(invalid) invalid")
 			})
@@ -404,11 +421,11 @@ func TestBuildSQLWhereV2(t *testing.T) {
 				WhereUser: WhereUser{
 					UserID: gptr.Of[int64](2),
 				},
-			}, func(where clause.Where, err error) {
+			}, func(where clause.Expression, err error) {
 				So(err, ShouldBeNil)
 				query, args := buildClauses(where)
-				So(query, ShouldEqual, "SELECT * FROM `users` WHERE `user_id` = ? AND `parent_id` = ?")
-				So(args, ShouldResemble, []interface{}{int64(2), int64(1)})
+				So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`user_id` = ? AND `parent_id` = ?)")
+				So(args, ShouldResemble, []any{int64(2), int64(1)})
 			})
 		})
 
@@ -432,11 +449,11 @@ func TestBuildSQLWhereV2(t *testing.T) {
 								UserAge: gptr.Of[int64](18),
 							},
 						},
-					}, func(where clause.Where, err error) {
+					}, func(where clause.Expression, err error) {
 						So(err, ShouldBeNil)
 						query, args := buildClauses(where) // TODO panic
 						So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`user_name` = ? OR `user_age` = ?)")
-						So(args, ShouldResemble, []interface{}{"dirac", int64(18)})
+						So(args, ShouldResemble, []any{"dirac", int64(18)})
 					})
 				})
 
@@ -451,22 +468,22 @@ func TestBuildSQLWhereV2(t *testing.T) {
 								UserAge: gptr.Of[int64](18),
 							},
 						},
-					}, func(where clause.Where, err error) {
+					}, func(where clause.Expression, err error) {
 						So(err, ShouldBeNil)
 						query, args := buildClauses(where)
-						So(query, ShouldEqual, "SELECT * FROM `users` WHERE `user_id` = ? AND (`user_name` = ? OR `user_age` = ?)")
-						So(args, ShouldResemble, []interface{}{int64(1), "dirac", int64(18)})
+						So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`user_id` = ? AND (`user_name` = ? OR `user_age` = ?))")
+						So(args, ShouldResemble, []any{int64(1), "dirac", int64(18)})
 					})
 				})
 
 				PatchConvey("field of OR expression is nil", func() {
 					testBuildSQLWhere(WhereUser{
 						UserID: gptr.Of[int64](1),
-					}, func(where clause.Where, err error) {
+					}, func(where clause.Expression, err error) {
 						So(err, ShouldBeNil)
 						query, args := buildClauses(where)
 						So(query, ShouldEqual, "SELECT * FROM `users` WHERE `user_id` = ?")
-						So(args, ShouldResemble, []interface{}{int64(1)})
+						So(args, ShouldResemble, []any{int64(1)})
 					})
 				})
 
@@ -477,11 +494,11 @@ func TestBuildSQLWhereV2(t *testing.T) {
 							{},
 							{},
 						},
-					}, func(where clause.Where, err error) {
+					}, func(where clause.Expression, err error) {
 						So(err, ShouldBeNil)
 						query, args := buildClauses(where)
 						So(query, ShouldEqual, "SELECT * FROM `users` WHERE `user_id` = ?")
-						So(args, ShouldResemble, []interface{}{int64(1)})
+						So(args, ShouldResemble, []any{int64(1)})
 					})
 				})
 
@@ -504,11 +521,11 @@ func TestBuildSQLWhereV2(t *testing.T) {
 								UserAge: gptr.Of[int64](19),
 							},
 						},
-					}, func(where clause.Where, err error) {
+					}, func(where clause.Expression, err error) {
 						So(err, ShouldBeNil)
 						query, args := buildClauses(where)
-						So(query, ShouldEqual, "SELECT * FROM `users` WHERE `user_id` = ? AND ((`user_age` = ? AND (`user_name` = ? OR `user_name` = ?)) OR `user_age` = ?)")
-						So(args, ShouldResemble, []interface{}{int64(1), int64(18), "bob", "dirac", int64(19)})
+						So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`user_id` = ? AND ((`user_age` = ? AND (`user_name` = ? OR `user_name` = ?)) OR `user_age` = ?))")
+						So(args, ShouldResemble, []any{int64(1), int64(18), "bob", "dirac", int64(19)})
 					})
 				})
 
@@ -531,11 +548,11 @@ func TestBuildSQLWhereV2(t *testing.T) {
 								UserName: gptr.Of("dirac"),
 							},
 						},
-					}, func(where clause.Where, err error) {
+					}, func(where clause.Expression, err error) {
 						So(err, ShouldBeNil)
 						query, args := buildClauses(where)
-						So(query, ShouldEqual, "SELECT * FROM `users` WHERE `user_id` = ? AND (`user_age` = ? OR `user_age` = ?) AND (`user_name` = ? OR `user_name` = ?)")
-						So(args, ShouldResemble, []interface{}{int64(1), int64(18), int64(19), "bob", "dirac"})
+						So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`user_id` = ? AND (`user_age` = ? OR `user_age` = ?) AND (`user_name` = ? OR `user_name` = ?))")
+						So(args, ShouldResemble, []any{int64(1), int64(18), int64(19), "bob", "dirac"})
 					})
 				})
 			})
@@ -560,11 +577,11 @@ func TestBuildSQLWhereV2(t *testing.T) {
 							UserName: gptr.Of("dirac"),
 						},
 					},
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE `user_age` = ? AND ((`user_id` = ? AND `user_name` = ?) OR (`user_id` = ? AND `user_name` = ?))")
-					So(args, ShouldResemble, []interface{}{int64(18), int64(123), "bob", int64(234), "dirac"})
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`user_age` = ? AND ((`user_id` = ? AND `user_name` = ?) OR (`user_id` = ? AND `user_name` = ?)))")
+					So(args, ShouldResemble, []any{int64(18), int64(123), "bob", int64(234), "dirac"})
 				})
 			})
 
@@ -588,11 +605,57 @@ func TestBuildSQLWhereV2(t *testing.T) {
 							UserName: gptr.Of("dirac"),
 						},
 					},
-				}, func(where clause.Where, err error) {
+				}, func(where clause.Expression, err error) {
 					So(err.Error(), ShouldContainSubstring, "struct field(OrClauses) with mix of sql_field(some_field) and expr($or) invalid")
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE")
-					So(args, ShouldResemble, []interface{}(nil))
+					So(query, ShouldEqual, "SELECT * FROM `users`")
+					So(args, ShouldResemble, []any(nil))
+				})
+			})
+		})
+
+		PatchConvey("json_contains expression", func() {
+			type UserWhere struct {
+				FriendIDsContains    *string  `sql_field:"friend_ids" sql_operator:"json_contains"`
+				FriendIDsContainsAny []string `sql_field:"friend_ids" sql_operator:"json_contains any"`
+				FriendIDsContainsAll []string `sql_field:"friend_ids" sql_operator:"json_contains all"`
+			}
+			PatchConvey("when nil", func() {
+				testBuildSQLWhere(UserWhere{}, func(where clause.Expression, err error) {
+					So(err, ShouldBeNil)
+					query, args := buildClauses(where)
+					So(query, ShouldEqual, "SELECT * FROM `users`")
+					So(args, ShouldResemble, []any(nil))
+				})
+			})
+			PatchConvey("when json_contains", func() {
+				testBuildSQLWhere(UserWhere{
+					FriendIDsContains: gptr.Of("110"),
+				}, func(where clause.Expression, err error) {
+					So(err, ShouldBeNil)
+					query, args := buildClauses(where)
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE JSON_CONTAINS(friend_ids, ?)")
+					So(args, ShouldResemble, []any{"110"})
+				})
+			})
+			PatchConvey("when json_contains any", func() {
+				testBuildSQLWhere(UserWhere{
+					FriendIDsContainsAny: gslice.Of("110", "111", "112"),
+				}, func(where clause.Expression, err error) {
+					So(err, ShouldBeNil)
+					query, args := buildClauses(where)
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (JSON_CONTAINS(friend_ids, ?) OR JSON_CONTAINS(friend_ids, ?) OR JSON_CONTAINS(friend_ids, ?))")
+					So(args, ShouldResemble, []any{"110", "111", "112"})
+				})
+			})
+			PatchConvey("when json_contains all", func() {
+				testBuildSQLWhere(UserWhere{
+					FriendIDsContainsAll: gslice.Of("110", "111", "112"),
+				}, func(where clause.Expression, err error) {
+					So(err, ShouldBeNil)
+					query, args := buildClauses(where)
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (JSON_CONTAINS(friend_ids, ?) AND JSON_CONTAINS(friend_ids, ?) AND JSON_CONTAINS(friend_ids, ?))")
+					So(args, ShouldResemble, []any{"110", "111", "112"})
 				})
 			})
 		})
@@ -601,8 +664,16 @@ func TestBuildSQLWhereV2(t *testing.T) {
 
 var db, _ = gorm.Open(tests.DummyDialector{}, nil)
 
-func buildClauses(where clause.Where) (result string, vars []any) {
-	clauses := []clause.Interface{clause.Select{}, clause.From{}, where}
+func buildClauses(where clause.Expression) (result string, vars []any) {
+	clauses := []clause.Interface{clause.Select{}, clause.From{}}
+	if where != nil {
+		w, ok := where.(clause.Where)
+		if ok {
+			clauses = append(clauses, w)
+		} else {
+			clauses = append(clauses, clause.Where{Exprs: []clause.Expression{where}})
+		}
+	}
 	var (
 		buildNames    []string
 		buildNamesMap = map[string]bool{}

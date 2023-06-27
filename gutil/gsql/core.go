@@ -169,7 +169,7 @@ func checkField(structField reflect.StructField, sqlField string) error {
 }
 
 func checkOperator(field reflect.StructField, sqlOperator string) error {
-	if _, ok := operatorMap[sqlOperator]; !ok {
+	if _, ok := whereMap[sqlOperator]; !ok {
 		return fmt.Errorf("field(%s) operator(%s) invalid", field.Name, sqlOperator)
 	}
 
@@ -187,5 +187,5 @@ func checkOperator(field reflect.StructField, sqlOperator string) error {
 }
 
 func isOperatorSupportArray(s string) bool {
-	return s == "in" || s == "not in"
+	return s == "in" || s == "not in" || s == "json_contains" || s == "json_contains any" || s == "json_contains all"
 }

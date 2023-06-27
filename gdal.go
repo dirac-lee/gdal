@@ -94,6 +94,7 @@ type GDAL[PO schema.Tabler, Where any, Update any] struct {
 	DAL
 }
 
+// NewGDAL new GDAL
 func NewGDAL[PO schema.Tabler, Where any, Update any](tx *gorm.DB) *GDAL[PO, Where, Update] {
 	return &GDAL[PO, Where, Update]{
 		NewDAL(tx),
@@ -294,7 +295,7 @@ func (gdal *GDAL[PO, Where, Update]) MQuery(ctx context.Context, where *Where, o
 // FROM `user` WHERE `id` in (123, 456, 789) ORDER BY birthday LIMIT 10
 func (gdal *GDAL[PO, Where, Update]) MQueryByIDs(ctx context.Context, ids []int64, options ...QueryOption) ([]*PO, error) {
 	where := &idWhere{
-		IDIn: &ids,
+		IDMustIn: &ids,
 	}
 	var pos []*PO
 	err := gdal.Find(ctx, &pos, where, options...)
@@ -506,6 +507,11 @@ func (gdal *GDAL[PO, Where, Update]) DB(options ...QueryOption) *gorm.DB {
 	return gdal.DAL.DB(options...)
 }
 
+func (gdal *GDAL[PO, Where, Update]) Where(where any) *GDAL[PO, Where, Update] {
+	tx := gdal.DB().Where(where)
+	return NewGDAL[PO, Where, Update](tx)
+}
+
 func buildQueryOptions(limit *int64, offset *int64, order *string) []QueryOption {
 	var options []QueryOption
 	if limit != nil {
@@ -521,6 +527,6 @@ func buildQueryOptions(limit *int64, offset *int64, order *string) []QueryOption
 }
 
 type idWhere struct {
-	ID   *int64   `sql_field:"id" sql_operator:"="`
-	IDIn *[]int64 `sql_field:"id" sql_operator:"in"`
+	ID       *int64   `sql_field:"id" sql_operator:"="`
+	IDMustIn *[]int64 `sql_field:"id" sql_operator:"in"`
 }

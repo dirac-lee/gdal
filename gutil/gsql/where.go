@@ -5,33 +5,77 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/dirac-lee/gdal/gutil/greflect"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-func BuildSQLWhereV2(where any) (clause.Where, error) {
+// BuildSQLWhereExpr build Where model struct into query & args in SQL
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
+//
+//	// model table
+//	type TableAbc struct {
+//		ID   int64  `gorm:"column:id"`
+//		Name string `gorm:"column:name"`
+//		Age  int    `gorm:"column:p_age"`
+//	}
+//
+//	func (TableAbc) TableName() string {
+//		return "table_abc"
+//	}
+//
+//	// fields to be updated
+//	type TableAbcWhere struct {
+//		Name *string `sql_field:"name" sql_operator:"like"`
+//		Age  *int    `sql_field:"p_age"`
+//	}
+//
+//	func example() {
+//		var name = "name%"
+//		var age = 20
+//		attrs := TableAbcWhere{
+//			Name: &name,
+//			Age:  &age,
+//		}
+//
+//		gwhere, err := BuildSQLWhereExpr(attrs)
+//		if err != nil {
+//			// handle error
+//		}
+//
+//		// SQL： update table_abc set name="byte-er" where id = 1
+//		if err := db.Find(&pos).Where(gwhere).Error; err != nil {
+//			logs.Error("fins table abc failed: %s", err)
+//		}
+//	}
+func BuildSQLWhereExpr(where any) (clause.Expression, error) {
 	rv, rt, err := greflect.GetElemValueTypeOfPtr(reflect.ValueOf(where))
 	if err != nil {
-		return clause.Where{}, err
+		return nil, err
 	}
 	return buildSQLWhereV2(rv, rt)
 }
 
-func buildSQLWhereV2(rv reflect.Value, rt reflect.Type) (clause.Where, error) {
+func buildSQLWhereV2(rv reflect.Value, rt reflect.Type) (clause.Expression, error) {
 	var exprs []clause.Expression
 	firstExprs, err := buildSQLAndExprsV2(rv, rt)
 	if err != nil {
-		return clause.Where{}, err
+		return nil, err
+	}
+	if len(firstExprs) > 0 {
+		exprs = append(exprs, clause.And(firstExprs...))
 	}
 
 	orClauseList := getOrClauseList(rv, rt)
 	if len(orClauseList) == 0 {
-		return clause.Where{Exprs: firstExprs}, nil
-	}
-	if len(firstExprs) > 0 {
-		exprs = append(exprs, clause.And(firstExprs...))
+		return clause.And(firstExprs...), nil
 	}
 	for _, orClause := range orClauseList { // multiple fields with tag $or
 		if !orClause.IsValid() {
@@ -39,14 +83,17 @@ func buildSQLWhereV2(rv reflect.Value, rt reflect.Type) (clause.Where, error) {
 		}
 		orExprs, err := buildSQLOrExprsV2(orClause)
 		if err != nil {
-			return clause.Where{}, err
+			return nil, err
 		}
 		if len(orExprs) > 0 {
 			orClauseExpr := clause.Or(orExprs...) // use OR to combine elem of slice field with tag $or
 			exprs = append(exprs, orClauseExpr)   // use AND to combine fields with tag $or
 		}
 	}
-	return clause.Where{Exprs: exprs}, nil
+	if len(exprs) == 0 {
+		return nil, nil
+	}
+	return clause.And(exprs...), nil
 }
 
 func buildSQLOrExprsV2(rv reflect.Value) ([]clause.Expression, error) {
@@ -54,7 +101,7 @@ func buildSQLOrExprsV2(rv reflect.Value) ([]clause.Expression, error) {
 		return nil, errors.New("or clauses must be slice or array")
 	}
 
-	exprs := make([]clause.Expression, 0, rv.Len())
+	var exprs []clause.Expression
 	for i := 0; i < rv.Len(); i++ { // range slice field with tag $or
 		erv := rv.Index(i)
 		if !erv.IsValid() {
@@ -67,14 +114,14 @@ func buildSQLOrExprsV2(rv reflect.Value) ([]clause.Expression, error) {
 			continue
 		}
 		ert := erv.Type()
-		subWhere, err := buildSQLWhereV2(erv, ert) // embedding
+		subExpr, err := buildSQLWhereV2(erv, ert) // embedding
 		if err != nil {
 			return nil, err
 		}
-		if len(subWhere.Exprs) == 0 {
+		if subExpr == nil {
 			continue
 		}
-		exprs = append(exprs, clause.And(subWhere.Exprs...))
+		exprs = append(exprs, clause.And(subExpr))
 	}
 
 	return exprs, nil
@@ -130,32 +177,28 @@ type SQLWhereExprBuilder func(column string, data any) (clause.Expression, error
 
 var whereMap = map[string]SQLWhereExprBuilder{
 	"<": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` < ?", column)
-		return gorm.Expr(expr, data), nil
+		return clause.Lt{Column: column, Value: data}, nil
 	},
 	"<=": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` <= ?", column)
-		return gorm.Expr(expr, data), nil
+		return clause.Lte{Column: column, Value: data}, nil
 	},
 	"=": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` = ?", column)
-		return gorm.Expr(expr, data), nil
+		return clause.Eq{Column: column, Value: data}, nil
 	},
 	"": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` = ?", column)
-		return gorm.Expr(expr, data), nil
+		return clause.Eq{Column: column, Value: data}, nil
 	},
 	"!=": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` != ?", column)
-		return gorm.Expr(expr, data), nil
+		return clause.Neq{Column: column, Value: data}, nil
+	},
+	"<>": func(column string, data any) (clause.Expression, error) {
+		return clause.Neq{Column: column, Value: data}, nil
 	},
 	">": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` > ?", column)
-		return gorm.Expr(expr, data), nil
+		return clause.Gt{Column: column, Value: data}, nil
 	},
 	">=": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` >= ?", column)
-		return gorm.Expr(expr, data), nil
+		return clause.Gte{Column: column, Value: data}, nil
 	},
 	"null": func(column string, data any) (clause.Expression, error) {
 		v, isBool := data.(bool)
@@ -224,4 +267,31 @@ func JSONContainsExprs(column string, data any) ([]clause.Expression, error) {
 		exprs = append(exprs, expr)
 	}
 	return exprs, nil
+}
+
+var orCache sync.Map
+
+func getOrClauseList(rv reflect.Value, rt reflect.Type) (orClauses []reflect.Value) {
+	var orIndices []int
+	value, cached := orCache.Load(rt)
+	if cached {
+		orIndices = value.([]int)
+		for _, index := range orIndices {
+			fieldValue := rv.Field(index)
+			orClauses = append(orClauses, fieldValue)
+		}
+		return orClauses
+	}
+
+	for i := 0; i < rt.NumField(); i++ {
+		fieldValue := rv.Field(i)
+		structField := rt.Field(i)
+		sqlExpr := strings.TrimSpace(structField.Tag.Get("sql_expr"))
+		if sqlExpr == "$or" {
+			orIndices = append(orIndices, i)
+			orClauses = append(orClauses, fieldValue)
+		}
+	}
+	orCache.Store(rt, orIndices)
+	return orClauses
 }

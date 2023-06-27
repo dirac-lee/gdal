@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
-
 	"github.com/dirac-lee/gdal/gutil/gsql"
 	"gorm.io/gorm"
 	"gorm.io/plugin/dbresolver"
 )
 
-// DAL Data Access Layer
+// DAL Data Access Layer.
 type DAL interface {
 	Create(ctx context.Context, po any) error
 	Save(ctx context.Context, po any) (int64, error)
@@ -25,12 +23,12 @@ type DAL interface {
 	DB(options ...QueryOption) *gorm.DB
 }
 
-// dal Data Access Layer Instance
+// dal Data Access Layer Instance.
 type dal struct {
 	db *gorm.DB
 }
 
-// NewDAL new dal
+// NewDAL new dal.
 func NewDAL(tx *gorm.DB) DAL {
 	cli := &dal{
 		db: tx,
@@ -38,7 +36,9 @@ func NewDAL(tx *gorm.DB) DAL {
 	return cli
 }
 
-// Create create a record of po
+// Create record(s) of po.
+//
+// 💡 HINT: multiple create records when po is slice.
 func (dal *dal) Create(ctx context.Context, po any) error {
 	db := dal.DBWithCtx(ctx)
 	if db.Error != nil {
@@ -51,7 +51,12 @@ func (dal *dal) Create(ctx context.Context, po any) error {
 	return nil
 }
 
-// Save update, or insert when conflicted.
+// Save insert when there are no conflicts, otherwise update by po's primary key.
+//
+// 💡 HINT: Save is suggested to be used after query then adjust some fields.
+//
+// ⚠️  WARNING: po must be a complete object, because Save will save all fields
+// event though the field is zero value.
 func (dal *dal) Save(ctx context.Context, po any) (int64, error) {
 	db := dal.DBWithCtx(ctx)
 	if db.Error != nil {
@@ -72,14 +77,14 @@ func (dal *dal) Delete(ctx context.Context, po any, where any) (int64, error) {
 		return 0, db.Error
 	}
 
-	query, args, err := gsql.BuildSQLWhere(where)
+	gormWhere, err := gsql.BuildSQLWhereExpr(where)
 	if err != nil {
 		return 0, err
 	}
-	if len(args) == 0 {
+	if gormWhere == nil {
 		return 0, fmt.Errorf("[gdal] can not delete without args")
 	}
-	db = db.Where(query, args...).Delete(po) // ignore_security_alert
+	db = db.Where(gormWhere).Delete(po) // ignore_security_alert
 	return db.RowsAffected, db.Error
 }
 
@@ -90,11 +95,11 @@ func (dal *dal) Update(ctx context.Context, po any, where any, update any) (int6
 		return 0, db.Error
 	}
 
-	query, args, err := gsql.BuildSQLWhere(where)
+	gormWhere, err := gsql.BuildSQLWhereExpr(where)
 	if err != nil {
 		return 0, err
 	}
-	if len(args) == 0 {
+	if gormWhere == nil {
 		return 0, fmt.Errorf("can not update without args")
 	}
 	attrs, err := gsql.BuildSQLUpdate(update)
@@ -105,7 +110,7 @@ func (dal *dal) Update(ctx context.Context, po any, where any, update any) (int6
 		return 0, nil
 	}
 
-	res := db.Model(po).Where(query, args...).Updates(attrs) // ignore_security_alert
+	res := db.Model(po).Where(gormWhere).Updates(attrs) // ignore_security_alert
 	if err := res.Error; err != nil {
 		return 0, err
 	}
@@ -146,43 +151,6 @@ func (dal *dal) First(ctx context.Context, po, where any, options ...QueryOption
 	return nil
 }
 
-// Upsert update (when exists) or insert (when absent).
-func (dal *dal) Upsert(ctx context.Context, po, where, update any) (isCreated bool, err error) {
-	db := dal.DBWithCtx(ctx)
-	if db.Error != nil {
-		return false, db.Error
-	}
-
-	query, args, err := gsql.BuildSQLWhere(where)
-	if err != nil {
-		return false, err
-	}
-
-	// 先查
-	if err = db.Where(query, args...).First(po).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { // ignore_security_alert
-		return false, err
-	}
-
-	pov := reflect.ValueOf(po)
-	if pov.Kind() == reflect.Ptr {
-		pov = pov.Elem()
-	}
-
-	pk := pov.FieldByName("ID").Int()
-	if pk == 0 { // ID is not set, i.e. record not found
-		if err := db.Create(po).Error; err != nil {
-			return false, err
-		}
-		isCreated = true
-	} else { // record found, then update it
-		if _, err = dal.Update(ctx, po, where, update); err != nil {
-			return false, err
-		}
-		isCreated = false
-	}
-	return isCreated, nil
-}
-
 // Count get the count by Where struct
 func (dal *dal) Count(ctx context.Context, po any, where any) (int32, error) {
 	db := dal.DBWithCtx(ctx)
@@ -190,13 +158,13 @@ func (dal *dal) Count(ctx context.Context, po any, where any) (int32, error) {
 		return 0, db.Error
 	}
 
-	query, args, err := gsql.BuildSQLWhere(where)
+	gormWhere, err := gsql.BuildSQLWhereExpr(where)
 	if err != nil {
 		return 0, err
 	}
 
 	var count int64
-	if err := db.Model(po).Where(query, args...).Count(&count).Error; err != nil { // ignore_security_alert
+	if err := db.Model(po).Where(gormWhere).Count(&count).Error; err != nil { // ignore_security_alert
 		return 0, err
 	}
 	return int32(count), nil
@@ -216,38 +184,6 @@ func (dal *dal) Exist(ctx context.Context, po any, where any) (bool, error) {
 		return false, err
 	}
 	return true, nil
-}
-
-func (dal *dal) whereDB(ctx context.Context, where any, options ...QueryOption) (db *gorm.DB, err error) {
-	db = dal.DBWithCtx(ctx, options...)
-	if db.Error != nil {
-		return nil, db.Error
-	}
-
-	query, args, err := gsql.BuildSQLWhere(where)
-	if err != nil {
-		return nil, err
-	}
-
-	opt := MakeQueryConfig(options)
-	if len(opt.Selects) > 0 {
-		db = db.Select(opt.Selects)
-	}
-	db = db.Where(query, args...) // ignore_security_alert
-	if opt.Order != nil {
-		db = db.Order(*opt.Order) // ignore_security_alert
-	}
-	if opt.Offset != nil {
-		db = db.Offset(*opt.Offset)
-	}
-	if opt.Limit != nil {
-		db = db.Limit(*opt.Limit)
-	}
-	if opt.Offset != nil && opt.Limit == nil {
-		return nil, fmt.Errorf("can not set offset while limit was set")
-	}
-
-	return db, nil
 }
 
 // DBWithCtx embedded DB with context
@@ -280,4 +216,36 @@ func (dal *dal) DB(options ...QueryOption) *gorm.DB {
 		db = db.Clauses(dbresolver.Write)
 	}
 	return db
+}
+
+func (dal *dal) whereDB(ctx context.Context, where any, options ...QueryOption) (db *gorm.DB, err error) {
+	db = dal.DBWithCtx(ctx, options...)
+	if db.Error != nil {
+		return nil, db.Error
+	}
+
+	gormWhere, err := gsql.BuildSQLWhereExpr(where)
+	if err != nil {
+		return nil, err
+	}
+
+	opt := MakeQueryConfig(options)
+	if len(opt.Selects) > 0 {
+		db = db.Select(opt.Selects)
+	}
+	db = db.Where(gormWhere) // ignore_security_alert
+	if opt.Order != nil {
+		db = db.Order(*opt.Order) // ignore_security_alert
+	}
+	if opt.Offset != nil {
+		db = db.Offset(*opt.Offset)
+	}
+	if opt.Limit != nil {
+		db = db.Limit(*opt.Limit)
+	}
+	if opt.Offset != nil && opt.Limit == nil {
+		return nil, fmt.Errorf("can not set offset while limit was set")
+	}
+
+	return db, nil
 }
