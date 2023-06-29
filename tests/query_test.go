@@ -3,6 +3,7 @@ package tests_test
 import (
 	"github.com/dirac-lee/gdal"
 	"github.com/dirac-lee/gdal/gutil/gsql"
+	"gorm.io/gorm/clause"
 	"testing"
 	"time"
 
@@ -93,6 +94,17 @@ func TestFind(t *testing.T) {
 				BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
 			})).Find(&users).Error
 			So(users, ShouldHaveLength, 0)
+			So(err, ShouldBeNil)
+		})
+
+		Convey("clauses", func() {
+			users := []*tests.User{
+				GetUser("find"),
+				GetUser("find"),
+				GetUser("find"),
+			}
+			total, err := UserDAL.Clauses(clause.OnConflict{DoNothing: true}).MCreate(ctx, &users)
+			So(total, ShouldEqual, 3)
 			So(err, ShouldBeNil)
 		})
 	})
