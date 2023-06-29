@@ -7,6 +7,7 @@ import (
 	"github.com/dirac-lee/gdal/gutil/gslice"
 	"github.com/dirac-lee/gdal/gutil/gvalue"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/schema"
 )
 
@@ -286,6 +287,8 @@ func (gdal *GDAL[PO, Where, Update]) MQuery(ctx context.Context, where *Where, o
 //
 // 💡 HINT: When you just need complete persistent objects by primary key list, this method is what you want.
 //
+// ⚠️  WARNING: nothing returns when ids is empty slice.å
+//
 // 🚀 example:
 //
 //	users, err := userDAL.MQueryByIDs(ctx, gslice.Of(123, 456, 789), gdal.WithLimit(10), gdal.WithOrder("birthday"))
@@ -507,8 +510,15 @@ func (gdal *GDAL[PO, Where, Update]) DB(options ...QueryOption) *gorm.DB {
 	return gdal.DAL.DB(options...)
 }
 
-func (gdal *GDAL[PO, Where, Update]) Where(where any) *GDAL[PO, Where, Update] {
-	tx := gdal.DB().Where(where)
+// Clauses generate a new GDAL with clause supplemented.
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
+func (gdal *GDAL[PO, Where, Update]) Clauses(conds ...clause.Expression) *GDAL[PO, Where, Update] {
+	tx := gdal.DB().Clauses(conds...)
 	return NewGDAL[PO, Where, Update](tx)
 }
 
@@ -529,4 +539,8 @@ func buildQueryOptions(limit *int64, offset *int64, order *string) []QueryOption
 type idWhere struct {
 	ID       *int64   `sql_field:"id" sql_operator:"="`
 	IDMustIn *[]int64 `sql_field:"id" sql_operator:"in"`
+}
+
+func (where *idWhere) ForceIndex() string {
+	return "PRIMARY"
 }

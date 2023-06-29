@@ -30,5 +30,5 @@ func (gdal *GDAL[PO, Where, Update]) forceIndexIfHas(ctx context.Context, where 
 	if len(forceIndex) == 0 { // Where 没有指定强制索引，由数据库自行决定
 		return txDAL
 	}
-	return NewGDAL[PO, Where, Update](gdal.DBWithCtx(ctx).Clauses(hints.UseIndex(forceIndex)))
+	return gdal.Clauses(hints.UseIndex(forceIndex))
 }

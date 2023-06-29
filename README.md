@@ -96,6 +96,9 @@ type UserUpdate struct {
     - `sql_operator:"left like"`   ->  `(where name like ?, "%"+name)`
     - `sql_operator:"right like"`  ->  `(where name like ?, name+"%")`
     - `sql_operator:"full like"`   ->  `(where name like ?, "%"+name+"%")`
+    - `sql_operator:"json_contains"` -> "where JSON_CONTAINS(name, ?)" 
+    - `sql_operator:"json_contains any"` -> "where (JSON_CONTAINS(name, ?) or JSON_CONTAINS(name, ?))"
+    - `sql_operator:"json_contains all"` -> "where (JSON_CONTAINS(name, ?) and JSON_CONTAINS(name, ?))"
 - Use tag `sql_expr` tag to indicate special expressions:
     - `sql_expr:"$or"`  ->  `or`
         - effective when there is no tag `sql_field`
@@ -110,10 +113,7 @@ type UserUpdate struct {
 - Use tag `sql_expr` to indicate special expressions:
     - `sql_expr:"+"`  ->  `update count = count + ?`
     - `sql_expr:"-"`  ->  `update count = count - ?`
-    - `sql_expr:"merge_json"`  ->
-      ```sql
-      update data = JSON_MERGE_PATCH(data, '{"key":"val"}')
-      ```
+    - `sql_expr:"json_set"`  -> `update JSON_SET(data, $.attr, ?)`
 
 ### 2.2 Customize business DAL
 
@@ -312,4 +312,32 @@ db.Transaction(func (tx *gorm.DB) error {
     
     return nil // commit
 })
+```
+
+### 2.3 Efficiency Features
+
+#### 2.3.1 Inject Default
+
+
+#### 2.3.2 Force Index
+
+```go
+func (where UserWhere) ForceIndex() string {
+	if where.ID != nil {
+		return "id"
+	}
+	return ""
+}
+
+
+```
+
+#### 2.3.3 Clauses
+
+```go
+total, err := UserDAL.Clauses(clause.OnConflict{DoNothing: true}).MCreate(ctx, &users)
+```
+
+```sql
+INSERT INTO `user` (`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted`) VALUES ('find',18,'2023-06-29 19:16:31',NULL,NULL,false,'2023-06-29 19:16:31.354','2023-06-29 19:16:31.354',false),('find',18,'2023-06-29 19:16:31',NULL,NULL,false,'2023-06-29 19:16:31.354','2023-06-29 19:16:31.354',false),('find',18,'2023-06-29 19:16:31',NULL,NULL,false,'2023-06-29 19:16:31.354','2023-06-29 19:16:31.354',false) ON DUPLICATE KEY UPDATE `id`=`id`
 ```
