@@ -9,7 +9,7 @@ A thoroughly object-relation mapping framework based on GORM. Struct object is a
 
 ## Installation
 
-> requirements: go > 1.18
+> requirements: go >= 1.18
 
 ```bash
 go get github.com/dirac-lee/gdal
@@ -76,31 +76,31 @@ type UserUpdate struct {
 #### 2.1.3 Features of Where
 
 - Use tag `sql_field` tag to indicate the corresponding table column:
-    - `sql_field:"id"`      ->  `where id = ?`
-    - `sql_field:"dog.id"`  ->  `where dog.id = ?`
+    - `sql_field:"id"`      ➡️  `where id = ?`
+    - `sql_field:"dog.id"`  ➡️  `where dog.id = ?`
 - Use tag `sql_operator` to indicate the selecting operator on the column:
-    - `sql_operator:"="`   ->  `where name = ?`，默认
-    - `sql_operator:">"`   ->  `where age > ? `
-    - `sql_operator:">="`  ->  `where age >= ? `
-    - `sql_operator:"<"`   ->  `where age < ? `
-    - `sql_operator:"<="`  ->  `where age <= ? `
-    - `sql_operator:"!="`  ->  `where age != ? `
+    - `sql_operator:"="`   ➡️  `where name = ?`，默认
+    - `sql_operator:">"`   ➡️  `where age > ? `
+    - `sql_operator:">="`  ➡️  `where age >= ? `
+    - `sql_operator:"<"`   ➡️  `where age < ? `
+    - `sql_operator:"<="`  ➡️  `where age <= ? `
+    - `sql_operator:"!="`  ➡️  `where age != ? `
     - `sql_operator:"null"`, the type of field must be `*bool`, and
-        - `true`   ->  `where age is null`，
-        - `false`  ->  `where age is not null`
-    - `sql_operator:"in"`          ->  `where id in (?)`
+        - `true`   ➡️  `where age is null`，
+        - `false`  ➡️  `where age is not null`
+    - `sql_operator:"in"`          ➡️  `where id in (?)`
       > ⚠️ Caution: empty slice `[]T{}` will be treated as nil slice `[]T(nil)`
-    - `sql_operator:"not in"`      ->  `where id not in (?)`，
+    - `sql_operator:"not in"`      ➡️  `where id not in (?)`，
       > ⚠️ Caution: the same as `in`
-    - `sql_operator:"like"`        ->  `(where name like ?, name)`
-    - `sql_operator:"left like"`   ->  `(where name like ?, "%"+name)`
-    - `sql_operator:"right like"`  ->  `(where name like ?, name+"%")`
-    - `sql_operator:"full like"`   ->  `(where name like ?, "%"+name+"%")`
-    - `sql_operator:"json_contains"` -> "where JSON_CONTAINS(name, ?)" 
-    - `sql_operator:"json_contains any"` -> "where (JSON_CONTAINS(name, ?) or JSON_CONTAINS(name, ?))"
-    - `sql_operator:"json_contains all"` -> "where (JSON_CONTAINS(name, ?) and JSON_CONTAINS(name, ?))"
+    - `sql_operator:"like"`        ➡️  `(where name like ?, name)`
+    - `sql_operator:"left like"`   ➡️  `(where name like ?, "%"+name)`
+    - `sql_operator:"right like"`  ➡️  `(where name like ?, name+"%")`
+    - `sql_operator:"full like"`   ➡️  `(where name like ?, "%"+name+"%")`
+    - `sql_operator:"json_contains"` ➡️ "where JSON_CONTAINS(name, ?)" 
+    - `sql_operator:"json_contains any"` ➡️ "where (JSON_CONTAINS(name, ?) or JSON_CONTAINS(name, ?))"
+    - `sql_operator:"json_contains all"` ➡️ "where (JSON_CONTAINS(name, ?) and JSON_CONTAINS(name, ?))"
 - Use tag `sql_expr` tag to indicate special expressions:
-    - `sql_expr:"$or"`  ->  `or`
+    - `sql_expr:"$or"`  ➡️  `or`
         - effective when there is no tag `sql_field`
         - if it has tag `sql_field`, the tag must be formed as `sql_field:"-"`
         - the type of field must be `[]Where`
@@ -109,11 +109,11 @@ type UserUpdate struct {
 #### 2.1.4 Features of Update
 
 - Use tag `sql_field` tag to indicate the corresponding table column:
-    - `sql_field:"id"`  ->  `where id = ?`
+    - `sql_field:"id"`  ➡️  `where id = ?`
 - Use tag `sql_expr` to indicate special expressions:
-    - `sql_expr:"+"`  ->  `update count = count + ?`
-    - `sql_expr:"-"`  ->  `update count = count - ?`
-    - `sql_expr:"json_set"`  -> `update JSON_SET(data, $.attr, ?)`
+    - `sql_expr:"+"`  ➡️  `update count = count + ?`
+    - `sql_expr:"-"`  ➡️  `update count = count - ?`
+    - `sql_expr:"json_set"`  ➡️ `update JSON_SET(data, $.attr, ?)`
 
 ### 2.2 Customize business DAL
 
@@ -318,26 +318,47 @@ db.Transaction(func (tx *gorm.DB) error {
 
 #### 2.3.1 Inject Default
 
+```go
+// InjectDefault if you not set field `Deleted` of `UserWhere`,
+// the where condition "deleted = false" will be automatically
+// injected to the SQL.
+func (where *UserWhere) InjectDefault() {
+	where.Deleted = gptr.Of(false)
+}
+```
 
 #### 2.3.2 Force Index
 
 ```go
+// ForceIndex if field ID or IDIn is set, clause `USE INDEX "PRIMARY"`
+// will be automatically injected to the SQL.
 func (where UserWhere) ForceIndex() string {
-	if where.ID != nil {
-		return "id"
-	}
-	return ""
+    if where.ID != nil || len(where.IDIn) > 0 {
+        return "PRIMARY" // USE INDEX "PRIMARY"
+    }
+    return "" // no USE INDEX
 }
-
-
 ```
 
 #### 2.3.3 Clauses
 
 ```go
-total, err := UserDAL.Clauses(clause.OnConflict{DoNothing: true}).MCreate(ctx, &users)
+now := time.Now()
+hobbies, _ := json.Marshal([]string{"cooking", "coding"})
+po := model.User{
+ID:         110,
+Name:       "dirac",
+Balance:    100,
+Hobbies:    string(hobbies),
+CreateTime: now,
+UpdateTime: now,
+Deleted:    false,
+}
+err := userDAL.Clauses(clause.OnConflict{UpdateAll: true}).Create(ctx, &po)
+fmt.Println(err)
 ```
 
+will be mapped into SQL
 ```sql
-INSERT INTO `user` (`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted`) VALUES ('find',18,'2023-06-29 19:16:31',NULL,NULL,false,'2023-06-29 19:16:31.354','2023-06-29 19:16:31.354',false),('find',18,'2023-06-29 19:16:31',NULL,NULL,false,'2023-06-29 19:16:31.354','2023-06-29 19:16:31.354',false),('find',18,'2023-06-29 19:16:31',NULL,NULL,false,'2023-06-29 19:16:31.354','2023-06-29 19:16:31.354',false) ON DUPLICATE KEY UPDATE `id`=`id`
+
 ```

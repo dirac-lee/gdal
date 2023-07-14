@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"gorm.io/gorm/clause"
 	"log"
 	"os"
 	"time"
@@ -38,25 +40,48 @@ func main() {
 
 	{ // create single record
 		now := time.Now()
+		hobbies, _ := json.Marshal([]string{"swimming", "coding"})
 		po := model.User{
 			ID:         110,
 			Name:       "dirac",
 			Balance:    100,
+			Hobbies:    string(hobbies),
 			CreateTime: now,
 			UpdateTime: now,
 			Deleted:    false,
 		}
+		// INSERT INTO `user` (`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted`,`id`) VALUES ('dirac',100,'["swimming","coding"]','2023-07-14 21:29:08.287','2023-07-14 21:29:08.287',false,110)
 		err := userDAL.Create(ctx, &po)
+		fmt.Println(err)
+	}
+
+	{ // INSERT ON DUPLICATE KEY UPDATE
+		now := time.Now()
+		hobbies, _ := json.Marshal([]string{"cooking", "coding"})
+		po := model.User{
+			ID:         110,
+			Name:       "dirac",
+			Balance:    100,
+			Hobbies:    string(hobbies),
+			CreateTime: now,
+			UpdateTime: now,
+			Deleted:    false,
+		}
+		// INSERT INTO `user` (`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted`,`id`) VALUES ('dirac',100,'["cooking","coding"]','2023-07-14 21:29:08.302','2023-07-14 21:29:08.302',false,110) ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`balance`=VALUES(`balance`),`hobbies`=VALUES(`hobbies`),`create_time`=VALUES(`create_time`),`update_time`=VALUES(`update_time`),`deleted`=VALUES(`deleted`)
+		err := userDAL.Clauses(clause.OnConflict{UpdateAll: true}).Create(ctx, &po)
 		fmt.Println(err)
 	}
 
 	{ // multiple create
 		now := time.Now()
+		hobbies1, _ := json.Marshal([]string{"book", "coding"})
+		hobbies2, _ := json.Marshal([]string{"book", "TV"})
 		pos := []*model.User{
 			{
 				ID:         120,
 				Name:       "bob",
 				Balance:    100,
+				Hobbies:    string(hobbies1),
 				CreateTime: now,
 				UpdateTime: now,
 				Deleted:    false,
@@ -65,11 +90,13 @@ func main() {
 				ID:         130,
 				Name:       "estele",
 				Balance:    50,
+				Hobbies:    string(hobbies2),
 				CreateTime: now,
 				UpdateTime: now,
 				Deleted:    false,
 			},
 		}
+		// INSERT INTO `user` (`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted`,`id`) VALUES ('bob',100,'["book","coding"]','2023-07-14 21:29:08.312','2023-07-14 21:29:08.312',false,120),('estele',50,'["book","TV"]','2023-07-14 21:29:08.312','2023-07-14 21:29:08.312',false,130)
 		numCreated, err := userDAL.MCreate(ctx, &pos)
 		fmt.Println(numCreated)
 		fmt.Println(err)
@@ -77,11 +104,13 @@ func main() {
 
 	{ // update by where condition
 		where := &model.UserWhere{
-			IDIn: []int64{110, 120},
+			IDIn:            []int64{110, 120},
+			HobbiesContains: gptr.Of("book"),
 		}
 		update := &model.UserUpdate{
 			BalanceAdd: gptr.Of[int64](10),
 		}
+		// UPDATE `user` SET `balance`=balance + 10 WHERE (`id` IN (110,120) AND JSON_CONTAINS(hobbies, 'book') AND `deleted` = false)
 		numUpdate, err := userDAL.MUpdate(ctx, where, update)
 		fmt.Println(numUpdate)
 		fmt.Println(err)
@@ -91,6 +120,7 @@ func main() {
 		update := &model.UserUpdate{
 			BalanceMinus: gptr.Of[int64](20),
 		}
+		// UPDATE `user` SET `balance`=balance - 20 WHERE `id` = 130
 		err := userDAL.UpdateByID(ctx, 130, update)
 		fmt.Println(err)
 	}
@@ -100,6 +130,7 @@ func main() {
 		where := &model.UserWhere{
 			NameLike: gptr.Of("dirac"),
 		}
+		// SELECT `id`,`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted` FROM `user` WHERE (`name` LIKE '%dirac%' AND `deleted` = false)
 		err := userDAL.Find(ctx, &pos, where)
 		fmt.Println(err)
 		fmt.Println(render.Render(pos))
@@ -107,8 +138,10 @@ func main() {
 
 	{ // multiple query
 		where := &model.UserWhere{
-			IDIn: []int64{110, 120},
+			IDIn:     []int64{110, 120},
+			NameLike: gptr.Of("tel"),
 		}
+		// SELECT `id`,`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted` FROM `user` USE INDEX (`PRIMARY`) WHERE (`id` IN (110,120) AND `name` LIKE '%tel%' AND `deleted` = false)
 		pos, err := userDAL.MQuery(ctx, where, gdal.WithMaster())
 		fmt.Println(err)
 		fmt.Println(render.Render(pos))
@@ -118,6 +151,8 @@ func main() {
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
+		// SELECT count(*) FROM `user` USE INDEX (`PRIMARY`) WHERE (`id` IN (110,120) AND `deleted` = false)
+		// SELECT `id`,`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted` FROM `user` USE INDEX (`PRIMARY`) WHERE (`id` IN (110,120) AND `deleted` = false) ORDER BY create_time desc LIMIT 5
 		pos, total, err := userDAL.MQueryByPaging(ctx, where, gptr.Of[int64](5), nil, gptr.Of("create_time desc"))
 		fmt.Println(err)
 		fmt.Println(total)
@@ -128,6 +163,8 @@ func main() {
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
+		// SELECT count(*) FROM `user` USE INDEX (`PRIMARY`) WHERE (`id` IN (110,120) AND `deleted` = false)
+		// SELECT `id`,`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted` FROM `user` USE INDEX (`PRIMARY`) WHERE (`id` IN (110,120) AND `deleted` = false) ORDER BY create_time desc LIMIT 5
 		pos, total, err := userDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(5), gdal.WithOrder("create_time desc"))
 		fmt.Println(err)
 		fmt.Println(total)
@@ -140,11 +177,13 @@ func main() {
 			update := &model.UserUpdate{
 				BalanceMinus: gptr.Of[int64](20),
 			}
+			// UPDATE `user` SET `balance`=balance - 20 WHERE `id` = 130
 			err := userDAL.WithTx(tx).UpdateByID(ctx, 130, update)
 			if err != nil {
 				return err // rollback
 			}
 
+			// DELETE FROM `user` WHERE `id` = 130
 			_, err = userDAL.WithTx(tx).DeleteByID(ctx, 130)
 			if err != nil {
 				return err // rollback
@@ -155,16 +194,18 @@ func main() {
 		fmt.Println(finalErr)
 	}
 
-	{ // 物理删除
+	{ // physically delete
 		where := &model.UserWhere{
 			IDIn: []int64{110, 120},
 		}
+		// DELETE FROM `user` WHERE `id` IN (110,120)
 		numDeleted, err := userDAL.Delete(ctx, where)
 		fmt.Println(numDeleted)
 		fmt.Println(err)
 	}
 
-	{ // 通过ID物理删除
+	{ // physically delete by id
+		// DELETE FROM `user` WHERE `id` = 130
 		numDeleted, err := userDAL.DeleteByID(ctx, 130)
 		fmt.Println(numDeleted)
 		fmt.Println(err)
