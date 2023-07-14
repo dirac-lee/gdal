@@ -616,6 +616,7 @@ func TestBuildSQLWhere(t *testing.T) {
 
 		PatchConvey("json_contains expression", func() {
 			type UserWhere struct {
+				ID                   *int     `sql_field:"id" sql_operator:"="`
 				FriendIDsContains    *string  `sql_field:"friend_ids" sql_operator:"json_contains"`
 				FriendIDsContainsAny []string `sql_field:"friend_ids" sql_operator:"json_contains any"`
 				FriendIDsContainsAll []string `sql_field:"friend_ids" sql_operator:"json_contains all"`
@@ -630,32 +631,46 @@ func TestBuildSQLWhere(t *testing.T) {
 			})
 			PatchConvey("when json_contains", func() {
 				testBuildSQLWhere(UserWhere{
+					ID:                gptr.Of(110),
 					FriendIDsContains: gptr.Of("110"),
 				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE JSON_CONTAINS(friend_ids, ?)")
-					So(args, ShouldResemble, []any{"110"})
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`id` = ? AND JSON_CONTAINS(friend_ids, ?))")
+					So(args, ShouldResemble, []any{110, "110"})
 				})
 			})
-			PatchConvey("when json_contains any", func() {
+			PatchConvey("when json_contains any of multiple", func() {
 				testBuildSQLWhere(UserWhere{
+					ID:                   gptr.Of(110),
 					FriendIDsContainsAny: gslice.Of("110", "111", "112"),
 				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (JSON_CONTAINS(friend_ids, ?) OR JSON_CONTAINS(friend_ids, ?) OR JSON_CONTAINS(friend_ids, ?))")
-					So(args, ShouldResemble, []any{"110", "111", "112"})
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`id` = ? AND (JSON_CONTAINS(friend_ids, ?) OR JSON_CONTAINS(friend_ids, ?) OR JSON_CONTAINS(friend_ids, ?)))")
+					So(args, ShouldResemble, []any{110, "110", "111", "112"})
+				})
+			})
+			PatchConvey("when json_contains any of one", func() {
+				testBuildSQLWhere(UserWhere{
+					ID:                   gptr.Of(110),
+					FriendIDsContainsAny: gslice.Of("110"),
+				}, func(where clause.Expression, err error) {
+					So(err, ShouldBeNil)
+					query, args := buildClauses(where)
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`id` = ? AND JSON_CONTAINS(friend_ids, ?))")
+					So(args, ShouldResemble, []any{110, "110"})
 				})
 			})
 			PatchConvey("when json_contains all", func() {
 				testBuildSQLWhere(UserWhere{
+					ID:                   gptr.Of(110),
 					FriendIDsContainsAll: gslice.Of("110", "111", "112"),
 				}, func(where clause.Expression, err error) {
 					So(err, ShouldBeNil)
 					query, args := buildClauses(where)
-					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (JSON_CONTAINS(friend_ids, ?) AND JSON_CONTAINS(friend_ids, ?) AND JSON_CONTAINS(friend_ids, ?))")
-					So(args, ShouldResemble, []any{"110", "111", "112"})
+					So(query, ShouldEqual, "SELECT * FROM `users` WHERE (`id` = ? AND (JSON_CONTAINS(friend_ids, ?) AND JSON_CONTAINS(friend_ids, ?) AND JSON_CONTAINS(friend_ids, ?)))")
+					So(args, ShouldResemble, []any{110, "110", "111", "112"})
 				})
 			})
 		})

@@ -221,26 +221,41 @@ var whereMap = map[string]SQLWhereExprBuilder{
 		return gorm.Expr(expr, data), nil
 	},
 	"full like": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` LIKE ?", column)
-		return gorm.Expr(expr, "%"+data.(string)+"%"), nil
+		v, isStr := data.(string)
+		if !isStr {
+			return clause.Expr{}, errors.New("field with tag `full like` must be string")
+		}
+		return clause.Like{Column: column, Value: "%" + v + "%"}, nil
 	},
 	"left like": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` LIKE ?", column)
-		return gorm.Expr(expr, "%"+data.(string)), nil
+		v, isStr := data.(string)
+		if !isStr {
+			return clause.Expr{}, errors.New("field with tag `left like` must be string")
+		}
+		return clause.Like{Column: column, Value: "%" + v}, nil
 	},
 	"right like": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` LIKE ?", column)
-		return gorm.Expr(expr, data.(string)+"%"), nil
+		v, isStr := data.(string)
+		if !isStr {
+			return clause.Expr{}, errors.New("field with tag `right like` must be string")
+		}
+		return clause.Like{Column: column, Value: v + "%"}, nil
 	},
 	"like": func(column string, data any) (clause.Expression, error) {
-		expr := fmt.Sprintf("`%v` LIKE ?", column)
-		return gorm.Expr(expr, data.(string)), nil
+		v, isStr := data.(string)
+		if !isStr {
+			return clause.Expr{}, errors.New("field with tag `like` must be string")
+		}
+		return clause.Like{Column: column, Value: v}, nil
 	},
 	"json_contains": func(column string, data any) (clause.Expression, error) {
 		return JSONContains(column, data), nil
 	},
 	"json_contains any": func(column string, data any) (clause.Expression, error) {
 		exprs, err := JSONContainsExprs(column, data)
+		if len(exprs) == 1 {
+			return exprs[0], nil
+		}
 		return clause.Or(exprs...), err
 	},
 	"json_contains all": func(column string, data any) (clause.Expression, error) {
