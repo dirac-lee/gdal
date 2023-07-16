@@ -327,6 +327,22 @@ func (where *UserWhere) InjectDefault() {
 }
 ```
 
+then 
+
+```go
+var pos []*model.User
+where := &model.UserWhere{
+    NameLike: gptr.Of("dirac"),
+}
+err := userDAL.Find(ctx, &pos, where)
+```
+
+will be mapped into SQL
+
+```sql
+SELECT `id`,`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted` FROM `user` WHERE (`name` LIKE '%dirac%' AND `deleted` = false)
+```
+
 #### 2.3.2 Force Index
 
 ```go
@@ -340,25 +356,40 @@ func (where UserWhere) ForceIndex() string {
 }
 ```
 
+then 
+
+```go
+where := &model.UserWhere{
+    IDIn:     []int64{110, 120},
+    NameLike: gptr.Of("tel"),
+}
+pos, err := userDAL.MQuery(ctx, where, gdal.WithMaster())
+```
+
+will be mapped to SQL (also influenced by default of where `deleted`)
+
+```sql
+SELECT `id`,`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted` FROM `user` USE INDEX (`PRIMARY`) WHERE (`id` IN (110,120) AND `name` LIKE '%tel%' AND `deleted` = false)
+```
+
 #### 2.3.3 Clauses
 
 ```go
 now := time.Now()
 hobbies, _ := json.Marshal([]string{"cooking", "coding"})
-po := model.User{
-ID:         110,
-Name:       "dirac",
-Balance:    100,
-Hobbies:    string(hobbies),
-CreateTime: now,
-UpdateTime: now,
-Deleted:    false,
+    po := model.User{
+    ID:         110,
+    Name:       "dirac",
+    Balance:    100,
+    Hobbies:    string(hobbies),
+    CreateTime: now,
+    UpdateTime: now,
+    Deleted:    false,
 }
 err := userDAL.Clauses(clause.OnConflict{UpdateAll: true}).Create(ctx, &po)
-fmt.Println(err)
 ```
 
 will be mapped into SQL
 ```sql
-
+INSERT INTO `user` (`name`,`balance`,`hobbies`,`create_time`,`update_time`,`deleted`,`id`) VALUES ('dirac',100,'["cooking","coding"]','2023-07-14 21:29:08.302','2023-07-14 21:29:08.302',false,110) ON DUPLICATE KEY UPDATE `name`=VALUES(`name`),`balance`=VALUES(`balance`),`hobbies`=VALUES(`hobbies`),`create_time`=VALUES(`create_time`),`update_time`=VALUES(`update_time`),`deleted`=VALUES(`deleted`)
 ```
