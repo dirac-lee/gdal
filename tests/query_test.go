@@ -81,8 +81,8 @@ func TestFind(t *testing.T) {
 		})
 
 		Convey("QueryByID", func() {
-			users, err := UserDAL.QueryByID(ctx, 123)
-			So(users, ShouldHaveLength, 0)
+			user, err := UserDAL.QueryByID(ctx, 123)
+			So(user, ShouldBeNil)
 			So(err, ShouldBeNil)
 		})
 
