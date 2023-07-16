@@ -75,14 +75,14 @@ func TestFind(t *testing.T) {
 				BirthdayLT: gptr.Of(time.Date(2019, 1, 1, 0, 0, 0, 0, time.Local)),
 			}
 			users, total, err := UserDAL.MQueryByPagingOpt(ctx, where, gdal.WithLimit(10), gdal.WithOrder("birthday"))
-			So(users, ShouldEqual, nil)
+			So(users, ShouldHaveLength, 0)
 			So(total, ShouldEqual, 0)
 			So(err, ShouldBeNil)
 		})
 
 		Convey("QueryByID", func() {
 			users, err := UserDAL.QueryByID(ctx, 123)
-			So(users, ShouldEqual, nil)
+			So(users, ShouldHaveLength, 0)
 			So(err, ShouldBeNil)
 		})
 
