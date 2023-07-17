@@ -85,7 +85,12 @@ func buildSQLWhereV2(rv reflect.Value, rt reflect.Type) (clause.Expression, erro
 		if err != nil {
 			return nil, err
 		}
-		if len(orExprs) > 0 {
+		if len(orExprs) == 0 {
+			continue
+		}
+		if len(orExprs) == 1 {
+			exprs = append(exprs, orExprs[0])  // when just one expr, no need OR
+		} else {
 			orClauseExpr := clause.Or(orExprs...) // use OR to combine elem of slice field with tag $or
 			exprs = append(exprs, orClauseExpr)   // use AND to combine fields with tag $or
 		}
