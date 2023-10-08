@@ -468,16 +468,15 @@ func (gdal *GDAL[PO, Where, Update]) Save(ctx context.Context, po *PO) error {
 	return err
 }
 
-// MSave saves multiple records
+// MSave saves multiple records, and return success count
 //
 // 💡 HINT:
 //
 // ⚠️  WARNING:
 //
 // 🚀 example:
-func (gdal *GDAL[PO, Where, Update]) MSave(ctx context.Context, pos *[]*PO) error {
-	_, err := gdal.DAL.Save(ctx, pos)
-	return err
+func (gdal *GDAL[PO, Where, Update]) MSave(ctx context.Context, pos *[]*PO) (int64, error) {
+	return gdal.DAL.Save(ctx, pos)
 }
 
 // Delete deletes physically by condition
