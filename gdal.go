@@ -475,7 +475,7 @@ func (gdal *GDAL[PO, Where, Update]) Save(ctx context.Context, po *PO) error {
 // ⚠️  WARNING:
 //
 // 🚀 example:
-func (gdal *GDAL[PO, Where, Update]) MSave(ctx context.Context, pos []*PO) error {
+func (gdal *GDAL[PO, Where, Update]) MSave(ctx context.Context, pos *[]*PO) error {
 	_, err := gdal.DAL.Save(ctx, pos)
 	return err
 }
