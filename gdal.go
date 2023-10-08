@@ -2,6 +2,7 @@ package gdal
 
 import (
 	"context"
+
 	"github.com/dirac-lee/gdal/gutil/gerror"
 	"github.com/dirac-lee/gdal/gutil/gptr"
 	"github.com/dirac-lee/gdal/gutil/gslice"
@@ -418,7 +419,7 @@ func (gdal *GDAL[PO, Where, Update]) QueryByID(ctx context.Context, id int64) (*
 	return &po, err
 }
 
-// MUpdate updates multiple records by condition
+// MUpdate updates multiple records by condition, return success count
 //
 // 💡 HINT:
 //
@@ -430,7 +431,7 @@ func (gdal *GDAL[PO, Where, Update]) MUpdate(ctx context.Context, where *Where, 
 	return gdal.DAL.Update(ctx, gdal.MakePO(), where, update)
 }
 
-// Update updates single records by condition
+// Update updates records by condition
 //
 // 💡 HINT:
 //
@@ -443,7 +444,7 @@ func (gdal *GDAL[PO, Where, Update]) Update(ctx context.Context, where *Where, u
 	return err
 }
 
-// UpdateByID updates single records by primary key
+// UpdateByID updates single record by primary key
 //
 // 💡 HINT:
 //
@@ -452,6 +453,30 @@ func (gdal *GDAL[PO, Where, Update]) Update(ctx context.Context, where *Where, u
 // 🚀 example:
 func (gdal *GDAL[PO, Where, Update]) UpdateByID(ctx context.Context, id int64, update *Update) error {
 	_, err := gdal.DAL.Update(ctx, gdal.MakePO(), idWhere{ID: &id}, update)
+	return err
+}
+
+// Save saves single record
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
+func (gdal *GDAL[PO, Where, Update]) Save(ctx context.Context, po *PO) error {
+	_, err := gdal.DAL.Save(ctx, po)
+	return err
+}
+
+// MSave saves multiple records
+//
+// 💡 HINT:
+//
+// ⚠️  WARNING:
+//
+// 🚀 example:
+func (gdal *GDAL[PO, Where, Update]) MSave(ctx context.Context, pos []*PO) error {
+	_, err := gdal.DAL.Save(ctx, pos)
 	return err
 }
 
