@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/dirac-lee/gdal/gutil/gsql"
 	"gorm.io/gorm"
 	"gorm.io/plugin/dbresolver"
@@ -17,8 +18,8 @@ type DAL interface {
 	Update(ctx context.Context, po any, where any, update any) (int64, error)
 	Find(ctx context.Context, po any, where any, options ...QueryOption) (err error)
 	First(ctx context.Context, po, where any, options ...QueryOption) error
-	Count(ctx context.Context, po any, where any) (int32, error)
-	Exist(ctx context.Context, po any, where any) (bool, error)
+	Count(ctx context.Context, po any, where any, options ...QueryOption) (int32, error)
+	Exist(ctx context.Context, po any, where any, options ...QueryOption) (bool, error)
 	DBWithCtx(ctx context.Context, options ...QueryOption) *gorm.DB
 	DB(options ...QueryOption) *gorm.DB
 }
@@ -152,8 +153,8 @@ func (dal *dal) First(ctx context.Context, po, where any, options ...QueryOption
 }
 
 // Count get the count by Where struct
-func (dal *dal) Count(ctx context.Context, po any, where any) (int32, error) {
-	db := dal.DBWithCtx(ctx)
+func (dal *dal) Count(ctx context.Context, po any, where any, options ...QueryOption) (int32, error) {
+	db := dal.DBWithCtx(ctx, options...)
 	if db.Error != nil {
 		return 0, db.Error
 	}
@@ -171,8 +172,8 @@ func (dal *dal) Count(ctx context.Context, po any, where any) (int32, error) {
 }
 
 // Exist judge if record found by where struct
-func (dal *dal) Exist(ctx context.Context, po any, where any) (bool, error) {
-	db, err := dal.whereDB(ctx, where)
+func (dal *dal) Exist(ctx context.Context, po any, where any, options ...QueryOption) (bool, error) {
+	db, err := dal.whereDB(ctx, where, options...)
 	if err != nil {
 		return false, err
 	}
