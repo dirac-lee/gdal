@@ -183,10 +183,10 @@ func (gdal *GDAL[PO, Where, Update]) MCreate(ctx context.Context, pos *[]*PO) (i
 //
 // SQL:
 // SELECT count(*) FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= "1999-01-01 00:00:00" and `birthday` < "2019-01-01 00:00:00"
-func (gdal *GDAL[PO, Where, Update]) Count(ctx context.Context, where *Where) (int64, error) {
+func (gdal *GDAL[PO, Where, Update]) Count(ctx context.Context, where *Where, options ...QueryOption) (int64, error) {
 	injectDefaultIfHas(where)                      // when field is not set in `where`,  insert customized default value  if customer has set it.
 	indexedDAL := gdal.forceIndexIfHas(ctx, where) // force index if  it is set in `where`.
-	count, err := indexedDAL.DAL.Count(ctx, gdal.MakePO(), where)
+	count, err := indexedDAL.DAL.Count(ctx, gdal.MakePO(), where, options...)
 	return int64(count), err
 }
 
@@ -359,8 +359,8 @@ func (gdal *GDAL[PO, Where, Update]) MQueryByPagingOpt(ctx context.Context, wher
 // SQL:
 // SELECT count(*) FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= "1999-01-01 00:00:00" and `birthday` < "2019-01-01 00:00:00"
 // SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted` FROM `user` WHERE `active` = true and `is_deleted` = false and `birthday` >= "1999-01-01 00:00:00" and `birthday` < "2019-01-01 00:00:00" ORDER BY birthday LIMIT 10
-func (gdal *GDAL[PO, Where, Update]) MQueryByPaging(ctx context.Context, where *Where, limit *int64, offset *int64, order *string) ([]*PO, int64, error) {
-	options := buildQueryOptions(limit, offset, order)
+func (gdal *GDAL[PO, Where, Update]) MQueryByPaging(ctx context.Context, where *Where, limit *int64, offset *int64, order *string, options ...QueryOption) ([]*PO, int64, error) {
+	options = append(options, buildQueryOptions(limit, offset, order)...)
 	return gdal.MQueryByPagingOpt(ctx, where, options...)
 }
 
@@ -404,12 +404,12 @@ func (gdal *GDAL[PO, Where, Update]) QueryFirst(ctx context.Context, where *Wher
 //
 // SQL:
 // SELECT `id`,`name`,`age`,`birthday`,`company_id`,`manager_id`,`active`,`create_time`,`update_time`,`is_deleted` FROM `user` WHERE `id` = 123 ORDER BY `user`.`id` LIMIT 1
-func (gdal *GDAL[PO, Where, Update]) QueryByID(ctx context.Context, id int64) (*PO, error) {
+func (gdal *GDAL[PO, Where, Update]) QueryByID(ctx context.Context, id int64, options ...QueryOption) (*PO, error) {
 	where := &idWhere{
 		ID: gptr.Of(id),
 	}
 	var po PO
-	err := gdal.First(ctx, &po, where)
+	err := gdal.First(ctx, &po, where, options...)
 	if err != nil {
 		if gerror.IsErrRecordNotFound(err) {
 			return nil, nil
