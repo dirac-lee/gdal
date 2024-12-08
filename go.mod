@@ -3,7 +3,7 @@ module github.com/dirac-lee/gdal
 go 1.18
 
 require (
-	github.com/bytedance/mockey v1.2.4
+	github.com/bytedance/mockey v1.2.5
 	github.com/luci/go-render v0.0.0-20160219211803-9a04cc21af0f
 	github.com/smartystreets/goconvey v1.8.1
 	gorm.io/driver/mysql v1.5.1
