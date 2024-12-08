@@ -12,7 +12,7 @@ require (
 	gorm.io/driver/sqlserver v1.5.1
 	gorm.io/gorm v1.25.2
 	gorm.io/hints v1.1.2
-	gorm.io/plugin/dbresolver v1.4.1
+	gorm.io/plugin/dbresolver v1.4.7
 )
 
 require (
